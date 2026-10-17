@@ -1,8 +1,10 @@
 {
   "name": "simulation-mcp-server",
   "version": "0.1.0",
-  "description": "Local MCP server for STEP meshing and explicitly configured steady thermal analysis with Gmsh and Elmer.",
+  "description": "Local MCP server for STEP meshing and explicitly configured thermal, structural, modal, DC, and laminar-flow analysis with Gmsh and Elmer.",
   "type": "module",
+  "mcpName": "io.github.mattmohandiss/simcp",
+  "main": "dist/src/index.js",
   "engines": {
     "node": ">=24"
   },
@@ -12,34 +14,70 @@
   "files": [
     "dist/src",
     "dist/contracts",
-    "dist/worker/*.py",
+    "dist/worker",
     "!dist/**/*.map",
     "README.md",
-    "THIRD_PARTY_NOTICES.md"
+    "docs/SECURITY.md",
+    "THIRD_PARTY_NOTICES.md",
+    "server.json"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mattmohandiss/simcp.git"
+  },
+  "homepage": "https://github.com/mattmohandiss/simcp#readme",
+  "bugs": {
+    "url": "https://github.com/mattmohandiss/simcp/issues"
+  },
+  "author": "Matt Mohandiss <mattmohandiss@gmail.com>",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "simulation",
+    "fem",
+    "finite-element",
+    "elmer",
+    "gmsh",
+    "step",
+    "thermal",
+    "structural",
+    "modal",
+    "conduction",
+    "cfd",
+    "mechanical-engineering",
+    "ai-tools"
   ],
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "node scripts/clean-dist.mjs && tsc && node scripts/copy-assets.mjs",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
     "prepack": "npm run build",
     "start": "node dist/src/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run tests/unit.test.ts tests/artifacts.test.ts tests/process.test.ts",
-    "test:integration": "vitest run tests/integration.test.ts",
+    "watch": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "lint": "oxlint src tests",
-    "fmt": "prettier --write src tests scripts package.json tsconfig.json"
+    "fmt": "prettier --write src tests scripts package.json tsconfig.json tsconfig.build.json vitest.config.ts vitest.integration.config.ts",
+    "fmt:check": "prettier --check src tests scripts package.json tsconfig.json tsconfig.build.json vitest.config.ts vitest.integration.config.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.3.1",
-    "zod": "4.6.5"
+    "pino": "^10.4.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.3.1",
-    "@types/node": "26.6.4",
+    "@types/node": "^24.0.0",
     "typescript": "7.0.2",
     "tsx": "4.23.15",
-    "vitest": "5.0.3",
-    "oxlint": "1.87.0",
-    "prettier": "3.9.9",
-    "typescript-language-server": "6.0.1"
+    "vitest": "^5.0.5",
+    "oxlint": "^1.88.0",
+    "prettier": "^3.9.10",
+    "typescript-language-server": "^6.0.2"
   }
 }

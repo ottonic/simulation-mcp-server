@@ -13,3 +13,9 @@ dist/
 .simulation-runs/
 __pycache__/
 .ruff_cache/
+*.tsbuildinfo
+coverage/
+
+# Native runtime build caches and generated toolchains
+.runtime-cache/
+native/

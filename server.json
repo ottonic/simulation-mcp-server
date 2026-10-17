@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.mattmohandiss/simcp",
+  "title": "Simulation MCP Server",
+  "description": "STEP meshing and explicitly configured thermal, structural, modal, DC, and laminar-flow analysis with Gmsh and Elmer. Returns computed facts, not conclusions.",
+  "repository": {
+    "url": "https://github.com/mattmohandiss/simcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/mattmohandiss/simcp#readme",
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "simulation-mcp-server",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

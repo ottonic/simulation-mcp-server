@@ -1,5 +1,5 @@
 {
-  description = "Independent Node 24 / Gmsh / Elmer steady thermal MCP";
+  description = "Independent Node 24 / Gmsh / Elmer thermal simulation MCP";
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/331800de5053fcebacf6813adb5db9c9dca22a0c";
     elmer.url = "github:ElmerCSC/elmerfem/61a3d3d9b971923555bb56a800ebec8df9482acd";

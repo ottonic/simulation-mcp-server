@@ -6,10 +6,23 @@ on:
   push:
     branches: ['**']
 
+# Auto-cancel superseded runs for the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/dependency-review-action@v5
+
   platform-check:
     name: ${{ matrix.name }}
     strategy:
@@ -35,6 +48,7 @@ jobs:
       - run: uvx ruff check worker
       - run: npm run typecheck
       - run: npm run lint
+      - run: npx prettier --check "src/**/*.ts" "tests/**/*.ts" "scripts/**/*.mjs" "*.json"
       - run: npm test
 
       - name: Read pinned Elmer revision
@@ -128,6 +142,13 @@ jobs:
         shell: msys2 {0}
         run: echo "$(cygpath -w "$MINGW_PREFIX/bin")" >> "$(cygpath -u "$GITHUB_PATH")"
 
+      - name: Save native Elmer runtime cache
+        if: steps.elmer-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .runtime-cache/elmer
+          key: simulation-elmer-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'scripts/build-elmer.sh') }}-${{ steps.runtime-toolchain.outputs.fingerprint || steps.runtime-toolchain-windows.outputs.fingerprint }}
+
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
@@ -145,9 +166,10 @@ jobs:
         run: npm run test:integration
 
       - name: Pack and install the published package
+        shell: bash
         run: |
-          npm pack --pack-destination .
-          npm install --prefix smoke --no-save --ignore-scripts ./simulation-mcp-server-0.1.0.tgz
+          tarball=$(npm pack --pack-destination . | tail -1)
+          npm install --prefix smoke --no-save --ignore-scripts "./$tarball"
 
       - name: Launch packed MCP server and inspect STEP fixture
         env:
@@ -156,13 +178,6 @@ jobs:
           SIMULATION_ELMERGRID: ${{ runner.os == 'Windows' && format('{0}/.runtime-cache/elmer/bin/ElmerGrid.exe', github.workspace) || format('{0}/.runtime-cache/elmer/bin/ElmerGrid', github.workspace) }}
           SIMULATION_ELMERSOLVER: ${{ runner.os == 'Windows' && format('{0}/.runtime-cache/elmer/bin/ElmerSolver.exe', github.workspace) || format('{0}/.runtime-cache/elmer/bin/ElmerSolver', github.workspace) }}
         run: node scripts/smoke-packed-mcp.mjs
-
-      - name: Save native Elmer runtime cache
-        if: steps.elmer-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: .runtime-cache/elmer
-          key: simulation-elmer-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'scripts/build-elmer.sh') }}-${{ steps.runtime-toolchain.outputs.fingerprint || steps.runtime-toolchain-windows.outputs.fingerprint }}
 
       - name: Upload tested native Elmer runtime
         uses: actions/upload-artifact@v7

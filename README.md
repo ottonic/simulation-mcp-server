@@ -1,23 +1,26 @@
 # Simulation MCP
 
 Independent local stdio MCP: STEP → explicit physical groups → Gmsh → ElmerGrid
-→ typed steady conduction → ElmerSolver → revisioned VTU/scalars/logs.
+→ typed thermal/structural/modal/DC conduction/laminar-flow studies → ElmerSolver → revisioned VTU/scalars/logs.
 Node 24 / TypeScript uses MCP SDK 2.3.1. A Python Gmsh
 worker uses a one-request/one-response JSON-file protocol (`protocol: 1`).
 No other MCP service, cloud service or prepared SIF is required.
 
-**Local validation (2026-10-13):** Nix Gmsh 4.15.0 and Elmer 26.2 completed the
-analytic thermal benchmark. Unit, artifact, process, and thermal integration tests
-passed locally. This is local runtime evidence, not verification of every target platform.
+**Local validation (2026-10-17):** Nix Gmsh 4.15.0 and Elmer 26.2 completed
+production-SIF qualifications for steady/transient thermal, static-structural,
+modal frequency, DC potential, and steady/transient laminar flow, each against an
+analytic reference with mesh (or timestep) refinement. This is local runtime
+evidence, not verification of every target platform.
 
 ## Install and launch
 
 Distribution targets match Geometry MCP: Windows x64, macOS ARM64 (Apple
 Silicon), and Linux x64. Intel macOS, Linux ARM64, and Windows ARM64 are outside
-the target matrix. CI runs unit/artifact/process checks on these three targets;
-CI is being extended to build the pinned serial Elmer solver on each target,
-cache the native install, and run the analytic thermal integration test. This
-validates native execution but does not yet publish a standalone runtime package.
+the target matrix. CI runs unit/artifact/process checks on these three targets,
+builds the pinned serial Elmer solver on each target, caches the native install,
+runs the analytic integration and qualification suites, then packs and
+smoke-tests the published tarball. This validates native execution; a standalone
+runtime package is not yet published.
 
 The repository owns its artifact schema in `contracts/`. Builds bundle that
 schema and the Python worker; Gmsh and Elmer runtimes are installed separately.
@@ -55,7 +58,7 @@ library plus `ElmerGrid` and `ElmerSolver` with `HeatSolve`, `FluxSolver`,
 | Variable                 | Default / meaning                                    |
 | ------------------------ | ---------------------------------------------------- |
 | `SIMULATION_INPUT_ROOTS` | Required JSON array of existing absolute input roots |
-| `SIMULATION_WORKSPACE`   | `.simulation-runs`; local run/artifact storage      |
+| `SIMULATION_WORKSPACE`   | `.simulation-runs`; local run/artifact storage       |
 | `SIMULATION_PYTHON`      | `python3` (Windows: `python`); Nix sets its wrapper  |
 | `SIMULATION_ELMERGRID`   | `ElmerGrid`                                          |
 | `SIMULATION_ELMERSOLVER` | `ElmerSolver`                                        |
@@ -78,76 +81,171 @@ the Nix shell):
 }
 ```
 
-## Staged tools
+## Study tools
 
-1. `inspect_source({uri})` or `inspect_source({source: ArtifactRef})` reads
-   exact STEP bytes. It returns `source`, revisioned `inspection`, inventory and
-   logs. Supported STEP SI length units are m/mm/cm/µm; mixed, missing or
-   unsupported length units fail explicitly. Gmsh OCC targets meters and retains
-   world placement. Entity bounds/centers have frame `step-world-si`; measures
-   have m²/m³ units. Imported body count is not a semantic assembly tree.
-2. `propose_mesh({source, inspection, controls})` rechecks refs and returns
-   candidates. Controls are `{minSize:0.003,maxSize:0.006,units:"m"}`.
-3. `generate_mesh({source, inspection, controls, groups})` requires explicit
-   groups of `{id,name,dimension,entities}`. IDs 1–999 and simple ASCII names
-   must be unique across dimensions. Every surface/solid must be assigned once;
-   each volume group contains exactly one solid. No auto-selecting regions.
-   Linear tetrahedra use ASCII MSH 2.2, then `ElmerGrid 14 2 mesh.msh -out mesh`.
-   Counts, positive minSICN quality and native connectivity/group membership are
-   checked. Return `mesh` is a ref to **Simulation-owned JSON metadata**, with
-   separate exact-byte Gmsh and four constituent Elmer mesh file refs. No
-   directory is hashed or presented as a byte-stream artifact.
-4. `configure_thermal_case({mesh, config})` validates full material coverage,
-   all surface BCs, disconnected-component constraints and conflicting nodal
-   temperatures; writes normalized JSON and deterministic SIF. Example:
+The public workflow is `get_capabilities` → `inspect_model` → `query_model` →
+`validate_study` → `prepare_study` → `run_study` → `inspect_job` →
+`query_results`. `list_jobs` recovers recent jobs after context loss and
+`cancel_job` stops an active preparation or solver process. Preparation and
+solver execution return job IDs immediately. Jobs survive client disconnects,
+not server shutdown. Interrupted jobs are recorded and are not resumed.
 
-   ```json
-   {
-     "physics": "steady-heat-conduction",
-     "materials": [
-       { "group": 1, "conductivity": { "value": 10, "units": "W/(m.K)" } }
-     ],
-     "sources": [],
-     "boundaries": [
-       {
-         "group": 2,
-         "kind": "temperature",
-         "temperature": { "value": 400, "units": "K" }
-       },
-       {
-         "group": 3,
-         "kind": "temperature",
-         "temperature": { "value": 300, "units": "K" }
-       },
-       { "group": 4, "kind": "insulated" }
-     ]
-   }
-   ```
+`get_capabilities` reports the available physics; the machine-readable
+`simulation://help` resource carries the full study schema — per-physics
+material and boundary fields with units, regimes, observation quantities with
+time/mode selectors, enums, and a parseable example. Both are generated from one
+catalog so discovery cannot drift from the accepted study schema.
 
-   Group IDs above are illustrative; use the returned mapping. Optional source
-   assignment: `{group:1,heat:{value:100,units:"W/m3"}}`; optional flux BC:
-   `{group:4,kind:"flux",inwardFlux:{value:50,units:"W/m2"}}`.
-   Positive flux enters the solid. Missing heat sources mean zero; insulation
-   must be selected explicitly. Materials are constant positive isotropic
-   conductivities. No arbitrary SIF, expressions, procedures or scripts.
+`steady-thermal`, `transient-thermal`, `static-structural`, `modal`,
+`dc-conduction`, and `laminar-flow` are implemented and benchmarked. Other physics reported by
+`get_capabilities` remain unavailable, not implied by the fact that Elmer has
+upstream solvers for them.
 
-5. `run_analysis({case})` returns immediately with `runId`; all constituent
-   revisions and generated SIF are verified before execution. Each solve gets
-   a unique directory. `inspect_run({runId})` reports preparing/running/succeeded/
-   failed/timeout/cancelled/interrupted. `cancel_run({runId})` terminates only an
-   active process group owned by this instance and retains evidence.
-6. Successful run metadata links source, mesh metadata, config, generated SIF,
-   solver banner/version, execution timing/status, logs and output refs. VTU
-   fields are inventoried; SaveScalars returns nodal temperature min/max/mean
-   and mean projected flux magnitude, each with units, method and source ref.
-   Means are **not** volume averages or integrated heat rates. Success requires
-   exit 0, no explicit failure diagnostics, positive temperature nonlinear
-   convergence flag and valid finite outputs. Numerical tolerances and raw
-   outputs remain available for independent interpretation.
+Transient studies require explicit density and heat capacity per solid,
+one uniform initial temperature, a positive timestep, and a step count capped
+at 10,000. Fixed-temperature, insulated and inward-heat-flux boundaries are
+supported; time-varying conditions and per-region initial
+temperatures are not. Transient scalar and VTU results are validated at every
+step. An observation may select a positive timestep-aligned time in seconds;
+without `time`, it observes the final step. Acceptance thresholds remain in the
+quantity's units (for example, K), not seconds.
 
-Tool failures use MCP `isError` with JSON domain error code/message and, where
-available, revisioned diagnostic log refs. Failed solves return inspectable run
-metadata rather than disguising partial outputs as successful results.
+Static structural studies require an explicit isotropic Young's modulus and
+Poisson ratio for every solid, and an explicit fixed-displacement,
+prescribed-displacement, uniform-traction, or free condition for every surface.
+The supported model is static, linear-elastic, and small-strain; displacement
+and stress summaries are unweighted nodal samples, not volume averages.
+
+Modal studies require explicit density in addition to elastic properties,
+fixed-displacement/free surface assignments, and request 1–20 modes. The first
+modal implementation reports eigenfrequencies only; it does not expose mode
+shapes, damping, prestress, or harmonic response. Modal observations select a
+mode number and use Hz.
+
+DC conduction studies require explicit positive isotropic electrical
+conductivity per solid, explicit prescribed-potential or insulated conditions
+on every surface, and at least two distinct prescribed potentials per
+disconnected conductive component. Results report the nodal potential field;
+current, Joule heating, magnetic effects, and transient/capacitive behavior are
+not modeled.
+
+Laminar-flow studies model incompressible Newtonian fluids with explicitly
+assigned constant density and dynamic viscosity. Every fluid surface must be
+explicitly assigned either a prescribed pressure or a no-slip wall; each
+disconnected fluid region needs at least two distinct prescribed pressures.
+Steady and transient runs are supported; transient runs use first-order BDF,
+constant timestep, and an explicit quiescent initial velocity. The solver is
+Elmer's monolithic `FlowSolve` module; qualification covers pressure-driven
+square-duct flow and transient startup against the analytic rectangular-duct
+solution, inlet/outlet flux conservation, and mesh/timestep refinement. Flux and
+section averages are not exposed; reported velocity and pressure values are nodal
+extrema. Elmer's segregated `IncompressibleNS` module is installed but not
+qualified. Turbulence, compressibility, moving walls, nonzero initial velocity,
+and thermal/electric coupling are not modeled.
+
+Selections use dimension-qualified inspection entity IDs (for example `3:1`
+for a volume or `2:7` for a surface), have unique names and cannot mix solids
+and surfaces. Every inspected entity must be assigned exactly once. Each solid
+selection needs one material; every surface selection defaults to insulated
+in thermal studies unless explicitly overridden. Structural, modal, and DC
+studies require explicit conditions on every surface. A thermal default is a
+declared engineering assumption, not an inferred boundary condition. Linear
+tetrahedra use SI units.
+
+Example steady thermal study after inspecting the STEP file:
+
+```json
+{
+  "schemaVersion": "1",
+  "name": "Bar conduction",
+  "objective": "Estimate the steady temperature and heat flux",
+  "model": {
+    "source": {
+      "revision": "sha256:<64 lowercase hex digits>",
+      "uri": "file:///.../source.step",
+      "format": "step",
+      "units": "mm"
+    },
+    "inspection": {
+      "revision": "sha256:<64 lowercase hex digits>",
+      "uri": "file:///.../inspection.json",
+      "format": "json"
+    }
+  },
+  "selections": [
+    { "name": "bar", "entities": ["3:1"] },
+    { "name": "hot_end", "entities": ["2:2"] },
+    { "name": "cold_end", "entities": ["2:3"] },
+    { "name": "other_faces", "entities": ["2:4", "2:5", "2:6", "2:7"] }
+  ],
+  "mesh": { "minSize": 0.003, "maxSize": 0.006, "elementOrder": 1 },
+  "physics": {
+    "kind": "steady-thermal",
+    "defaultBoundary": "insulated",
+    "materials": [
+      {
+        "selection": "bar",
+        "conductivity": { "value": 10, "units": "W/(m.K)" }
+      }
+    ],
+    "sources": [],
+    "boundaries": [
+      {
+        "selection": "hot_end",
+        "kind": "temperature",
+        "temperature": { "value": 400, "units": "K" }
+      },
+      {
+        "selection": "cold_end",
+        "kind": "temperature",
+        "temperature": { "value": 300, "units": "K" }
+      }
+    ]
+  },
+  "observations": [{ "id": "max_temperature", "quantity": "temperature_max" }],
+  "acceptanceCriteria": [
+    {
+      "observationId": "max_temperature",
+      "operator": "<",
+      "threshold": { "value": 410, "units": "K" }
+    }
+  ],
+  "assumptions": []
+}
+```
+
+The example entity tags are illustrative; use tags from `query_model` and
+confirm each selection against the actual part. `prepare_study` returns a
+`jobId`; poll `inspect_job` until it succeeds, then pass its `prepared` artifact
+to `run_study`, which returns another `jobId`. `query_results` reports solver
+evidence separately from observation
+values and criterion outcomes; a failed criterion is an engineering result, not
+a solver error. Its response is bounded by default — summaries backing the
+returned observations, de-duplicated field descriptors, and one page of artifact
+refs (`limit`/`cursor`, `artifactCount`). Pass `include:["summaries"]` for the
+full history, `time` to select one frame, or `observations` to filter. Scalar
+means are nodal, not volume averages or integrated heat
+rates. Arbitrary SIF, procedures, expressions, scripts and solver commands are
+never study inputs.
+
+Tool failures use MCP `isError`. Domain failures from the service return a JSON
+`{ code, message }` object (with revisioned diagnostic log refs where available);
+invalid tool arguments are rejected by the MCP layer before the handler runs and
+are returned as plain text. The domain error codes are a closed, documented set
+(listed under `enums.error_codes` in `simulation://help`): `invalid_input`,
+`invalid_study`, `invalid_physics`, `invalid_selection`, `invalid_job_kind`,
+`unsupported_condition`, `unsupported_physics`, `unsupported_format`,
+`stale_artifact`, `path_policy`, `file_not_found`, `too_large`, `bad_mesh`,
+`bad_groups`, `malformed_results`, `solver_failed`, `worker_failed`,
+`conversion_failed`, `process_failed`, `spawn_error`, `output_limit`,
+`persistence_failed`, `cancelled`, `timeout`, `interrupted`, `worker_protocol`,
+and `internal_error`. Failed solves return inspectable run metadata rather than
+disguising partial outputs as successful results.
+
+Server diagnostics are written as newline-delimited JSON to stderr (stdout is the
+MCP channel). Set `MCP_LOG_LEVEL` (`debug`|`info`|`warn`|`error`, default
+`info`), `MCP_LOG_FORMAT=human` for a compact form, and
+`MCP_TRACE_ID` to correlate events; secret-like fields are redacted.
 
 ## Boundaries, security and retention
 
@@ -165,7 +263,10 @@ metadata rather than disguising partial outputs as successful results.
   workspace-disk quota; provision OS quotas/cgroups if deployment needs them.
 - V1 supports separate solid regions and exterior BC groups. Internal/orphan
   native boundaries fail; no contact resistance, automatic fragmentation,
-  repairs, nonconformal coupling, radiation, transient or nonlinear physics.
+  repairs, nonconformal coupling, radiation, plasticity, or geometric
+  nonlinearity. Transient thermal supports only the explicit constant-property/
+  time-step model above; structural support is isotropic, linear small-strain;
+  modal support is undamped and unloaded.
 - Selectors are tied to exact source revision, Gmsh version and
   `gmsh-occ-import-v1`. No Geometry SubjectRef-to-Gmsh topology equivalence is
   claimed. Imported names are hints, never engineering intent.
@@ -184,7 +285,7 @@ metadata rather than disguising partial outputs as successful results.
   It communicates with TypeScript through a bounded JSON-file worker protocol;
   no generated `.geo` script is required.
 - Typed inputs generate deterministic SIF. PyElmer and model-authored SIF are
-  unnecessary for the supported steady thermal workflow.
+  unnecessary for supported workflows.
 - ASCII MSH 2.2 transfers explicit physical groups to ElmerGrid; converted group
   membership and connectivity are verified instead of trusting labels alone.
 - Upstream Elmer and Gmsh are external tools provisioned by Nix, not downloaded
@@ -201,7 +302,30 @@ are `step`, `gmsh-msh`, `elmer-mesh`, `vtu`, `elmer-sif`, `text`, and `json`.
 Derived artifacts receive their own digests. An Elmer mesh directory is not a
 single artifact: its metadata references individual native files.
 
-## Server checks
+## Development
+
+Requires Node.js 24+ and [`just`](https://github.com/casey/just). A Nix flake and
+`.envrc` provide the toolchain; run `direnv allow` after changing either.
+
+| Recipe             | Purpose                                         |
+| ------------------ | ----------------------------------------------- |
+| `just setup`       | Install dependencies (npm scripts disabled).    |
+| `just dev`         | Run the server over stdio.                      |
+| `just start`       | Run the compiled server.                        |
+| `just build`       | Compile into `dist/`.                           |
+| `just test`        | Run solver-independent unit tests.              |
+| `just test-integration` | Run the opt-in Gmsh/Elmer integration benchmark.|
+| `just lint`        | Run oxlint.                                     |
+| `just fmt`         | Rewrite formatting with Prettier.               |
+| `just fmt-check`   | Verify formatting.                              |
+| `just typecheck`   | Run `tsc --noEmit`.                             |
+| `just check`       | `fmt-check` + `lint` + `typecheck` + `test`.    |
+| `just fixture`     | Regenerate the analytic bar fixture.            |
+| `just clean`       | Remove build output.                            |
+
+Server logs go to stderr as newline-delimited pino JSON. `MCP_LOG_LEVEL`
+(`debug`|`info`|`warn`|`error`), `MCP_LOG_FORMAT=human`, and `MCP_TRACE_ID` tune
+them; secret-like fields are redacted.
 
 The lightweight `checks` shell includes Node and Ruff without building the
 Gmsh/Elmer solver toolchain:
@@ -210,12 +334,12 @@ Gmsh/Elmer solver toolchain:
 # Run from this repository.
 nix develop .#checks --accept-flake-config --command just setup
 nix develop .#checks --accept-flake-config --command just check
-nix develop --accept-flake-config --command just integration
+nix develop --accept-flake-config --command just test-integration
 nix develop --accept-flake-config --command just check
 nix develop --accept-flake-config --command just build
 ```
 
-`just integration` runs the opt-in direct-service Gmsh/Elmer benchmark. It is
+`just test-integration` runs the opt-in direct-service Gmsh/Elmer benchmark. It is
 server-owned integration coverage; public stdio acceptance runs separately
 against the built server artifact.
 
@@ -236,6 +360,9 @@ schema, Python worker, README, and third-party notices. Tests, source maps, and
 Python caches are excluded. Install the tarball to check `simulation-mcp-server`
 with a compatible MCP client. The server requires protocol `2026-07-28` and
 rejects legacy negotiation. Native tools still require separate installation.
+
+`just check` includes solver-independent stdio protocol tests for modern
+discovery, workflow resources, tool errors, and explicit legacy rejection.
 
 A project license must be selected and added before public release; third-party
 notices do not license this server's own code.
