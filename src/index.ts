@@ -99,8 +99,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
     elmerSolver: process.env.SIMULATION_ELMERSOLVER ?? 'ElmerSolver',
     timeoutMs: Number(process.env.SIMULATION_TIMEOUT_MS ?? 120000),
   });
+  // Serve the 2025-era handshake as well: stock MCP hosts negotiate
+  // 2025-11-25, and the same factory serves both eras.
   const handle = serveStdio(() => createServer(simulation), {
-    legacy: 'reject',
+    legacy: 'serve',
   });
   logEvent('server.started', {
     tools: TOOL_REGISTRY.length,

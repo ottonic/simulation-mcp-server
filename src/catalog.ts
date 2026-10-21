@@ -1,4 +1,5 @@
-import { OBSERVATION_QUANTITIES } from './schemas.js';
+import { z } from 'zod';
+import { OBSERVATION_QUANTITIES, studySchema } from './schemas.js';
 import { ERROR_CODES } from './errors.js';
 
 // Discovery is generated from this catalog so capability tokens, help, and
@@ -510,31 +511,6 @@ export const PHYSICS_CATALOG: PhysicsHelp[] = [
   },
 ];
 
-export const capabilities = {
-  schemaVersion: '1' as const,
-  physics: PHYSICS_CATALOG.map((entry) => ({
-    kind: entry.kind,
-    available: entry.available,
-    ...(entry.reason === undefined ? {} : { reason: entry.reason }),
-    materialModels: entry.materialModels,
-    boundaryKinds: entry.boundaryKinds,
-    quantities: entry.quantities,
-    ...(entry.controls === undefined ? {} : { controls: entry.controls }),
-  })),
-  workflow: WORKFLOW,
-};
-
-const HELP_RULES = [
-  'Call get_capabilities first; only physics marked available are accepted by prepare_study.',
-  'Call inspect_model with a file: URI to obtain source and inspection artifact references; pass both into the study model block.',
-  'Define selections with dimension-qualified entity IDs (3:tag for solids, 2:tag for surfaces). Every inspected entity must be assigned exactly once and each solid selection must contain one solid.',
-  'Assign exactly one material per solid selection and one explicit condition per surface selection; thermal surfaces default to insulated unless overridden.',
-  'Every observation needs a unique id and a quantity from the physics entry. Transient quantities may set time in seconds (timestep-aligned); modal eigenfrequency requires mode.',
-  'Thermal studies require defaultBoundary: "insulated"; optional sources use volumetricHeat in W/m3.',
-  'Run prepare_study then run_study, poll inspect_job, and read evidence with query_results. Jobs survive client disconnects, not server shutdown.',
-  'Treat results as computed facts. Apply materials, loads, tolerances, and requirements separately before engineering judgment.',
-];
-
 const STUDY_SHAPE = {
   required: ['schemaVersion', 'name', 'objective', 'model', 'selections', 'mesh', 'physics'],
   optional: ['observations', 'acceptanceCriteria', 'assumptions'],
@@ -576,6 +552,34 @@ const STUDY_SHAPE = {
   },
 };
 
+export const capabilities = {
+  schemaVersion: '1' as const,
+  physics: PHYSICS_CATALOG.map((entry) => ({
+    kind: entry.kind,
+    available: entry.available,
+    ...(entry.reason === undefined ? {} : { reason: entry.reason }),
+    materialModels: entry.materialModels,
+    boundaryKinds: entry.boundaryKinds,
+    quantities: entry.quantities,
+    ...(entry.controls === undefined ? {} : { controls: entry.controls }),
+  })),
+  workflow: WORKFLOW,
+  // The study document shape, so a tools-only client can build one without the
+  // simulation://help resource.
+  study: STUDY_SHAPE,
+};
+
+const HELP_RULES = [
+  'Call get_capabilities first; only physics marked available are accepted by prepare_study.',
+  'Call inspect_model with a file: URI to obtain source and inspection artifact references; pass both into the study model block.',
+  'Define selections with dimension-qualified entity IDs (3:tag for solids, 2:tag for surfaces). Every inspected entity must be assigned exactly once and each solid selection must contain one solid.',
+  'Assign exactly one material per solid selection and one explicit condition per surface selection; thermal surfaces default to insulated unless overridden.',
+  'Every observation needs a unique id and a quantity from the physics entry. Transient quantities may set time in seconds (timestep-aligned); modal eigenfrequency requires mode.',
+  'Thermal studies require defaultBoundary: "insulated"; optional sources use volumetricHeat in W/m3.',
+  'Run prepare_study, wait with inspect_job({ jobId, waitMs }) until the prepared artifact appears, then run_study and wait again; read evidence with query_results. A single bounded wait replaces repeated polling, and work stops if the client cancels the request. Jobs survive client disconnects, not server shutdown.',
+  'Treat results as computed facts. Apply materials, loads, tolerances, and requirements separately before engineering judgment.',
+];
+
 export function helpDocument() {
   return {
     schemaVersion: '1',
@@ -583,7 +587,7 @@ export function helpDocument() {
       '10 workflow tools: get_capabilities → inspect_model → query_model → validate_study → prepare_study → run_study → inspect_job → list_jobs → query_results → cancel_job',
     rules: HELP_RULES,
     workflow: WORKFLOW,
-    study: STUDY_SHAPE,
+    study: { ...STUDY_SHAPE, schema: z.toJSONSchema(studySchema, { io: 'input' }) },
     physics: PHYSICS_CATALOG.map((entry) => ({
       kind: entry.kind,
       available: entry.available,
@@ -608,4 +612,4 @@ export function helpDocument() {
 export const HELP_URI = 'simulation://help';
 export const WORKFLOW_URI = 'simulation://workflow';
 export const WORKFLOW_TEXT =
-  'get_capabilities → inspect_model → query_model → validate_study → prepare_study → run_study → inspect_job → query_results. Cancel with cancel_job; recover jobs with list_jobs. Steady/transient thermal, static linear-elastic structural, bounded modal frequency, steady DC conduction, and steady/transient laminar-flow analyses are implemented; other physics are unavailable. Supply all engineering conditions explicitly; no material lookup, load inference, CAD repair or certification. Fetch simulation://help for the machine-readable study schema. Local shared filesystem; jobs survive client disconnects, not server shutdown.';
+  'get_capabilities → inspect_model → query_model → validate_study → prepare_study → inspect_job (waitMs) → run_study → inspect_job (waitMs) → query_results. Cancel with cancel_job; recover jobs with list_jobs. Steady/transient thermal, static linear-elastic structural, bounded modal frequency, steady DC conduction, and steady/transient laminar-flow analyses are implemented; other physics are unavailable. Supply all engineering conditions explicitly; no material lookup, load inference, CAD repair or certification. Fetch simulation://help for the machine-readable study schema. Local shared filesystem; jobs survive client disconnects, not server shutdown.';

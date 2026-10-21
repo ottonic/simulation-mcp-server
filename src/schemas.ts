@@ -12,7 +12,7 @@ export type ArtifactRef = {
   units?: string;
 };
 export const artifactSchema = z.fromJSONSchema(artifactContract) as z.ZodType<ArtifactRef>;
-export const id = z.string().uuid();
+export const id = z.string().uuid().describe('Job id returned by prepare_study or run_study.');
 export const controlsSchema = z
   .strictObject({
     minSize: z.number().positive().max(1000),
@@ -649,6 +649,19 @@ export const resultSchema = z.strictObject({
   coordinateUnits: z.literal('m'),
   time: z.strictObject({ value: z.number().nonnegative(), units: z.literal('s') }).optional(),
 });
+/** Statuses a job never leaves. `preparing`/`running` are the only live ones. */
+export const TERMINAL_JOB_STATUSES = [
+  'succeeded',
+  'failed',
+  'timeout',
+  'cancelled',
+  'interrupted',
+] as const;
+
+export function isTerminalJobStatus(status: string): boolean {
+  return (TERMINAL_JOB_STATUSES as readonly string[]).includes(status);
+}
+
 // Shared by the persisted solve record (`runSchema`) and the MCP job output
 // (`jobSchema`) so the two cannot drift.
 export const solveJobFields = {

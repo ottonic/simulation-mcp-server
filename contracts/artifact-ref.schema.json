@@ -5,19 +5,20 @@
   "additionalProperties": false,
   "required": ["revision", "format"],
   "properties": {
-    "revision": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
-    "uri": { "type": "string", "format": "uri" },
+    "revision": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "description": "sha256 revision of the artifact. Copy it exactly from the tool that produced it; the server rejects a reference whose bytes no longer match."
+    },
+    "uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "Where the artifact lives, as returned by the producing tool (usually a file: URI)."
+    },
     "format": {
       "type": "string",
-      "enum": [
-        "step",
-        "gmsh-msh",
-        "elmer-mesh",
-        "vtu",
-        "elmer-sif",
-        "text",
-        "json"
-      ]
+      "enum": ["step", "gmsh-msh", "elmer-mesh", "vtu", "elmer-sif", "text", "json"],
+      "description": "Artifact format."
     },
     "units": {
       "type": "string",

@@ -178,16 +178,13 @@ it('serves discovery, resources and tool errors over the modern MCP protocol', a
   });
 }, 15_000);
 
-it('rejects legacy protocol negotiation with the supported modern version', async () => {
+it('serves the 2025-era handshake that stock MCP hosts negotiate', async () => {
   await withClient('2025-11-25', async (client, transport) => {
-    try {
-      await client.connect(transport, { timeout: 5_000 });
-      throw new Error('Expected the server to reject legacy protocol negotiation');
-    } catch (error) {
-      expect(error).toMatchObject({
-        code: -32022,
-        data: { requested: '2025-11-25', supported: ['2026-07-28'] },
-      });
-    }
+    await client.connect(transport, { timeout: 5_000 });
+    expect(client.getNegotiatedProtocolVersion()).toBe('2025-11-25');
+    expect(client.getProtocolEra()).toBe('legacy');
+    const { tools } = await client.listTools();
+    expect(tools).toHaveLength(10);
+    expect(tools.map((tool) => tool.name)).toContain('get_capabilities');
   });
 }, 15_000);

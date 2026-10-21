@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, it } from 'vitest';
+import { helpDocument } from '../src/catalog.js';
 import { TOOL_REGISTRY } from '../src/tools.js';
 import { service } from './helpers.js';
 
@@ -147,4 +148,24 @@ it('rejects a success shape that omits required fields', () => {
   };
   expect(tool('query_results').outputSchema.safeParse(withoutCount).success).toBe(false);
   expect(tool('run_study').outputSchema.safeParse({ kind: 'solve' }).success).toBe(false);
+});
+
+it('bounds the job wait window on inspect_job', () => {
+  const schema = tool('inspect_job').inputSchema;
+  const jobId = randomUUID();
+
+  // Omitted waitMs means one read, unchanged from before.
+  expect(schema.safeParse({ jobId }).success).toBe(true);
+  // A bounded wait, up to the documented ceiling.
+  expect(schema.safeParse({ jobId, waitMs: 1 }).success).toBe(true);
+  expect(schema.safeParse({ jobId, waitMs: 60_000 }).success).toBe(true);
+  // Out-of-range and non-integer windows are rejected rather than clamped.
+  expect(schema.safeParse({ jobId, waitMs: 60_001 }).success).toBe(false);
+  expect(schema.safeParse({ jobId, waitMs: 0 }).success).toBe(false);
+  expect(schema.safeParse({ jobId, waitMs: 1.5 }).success).toBe(false);
+});
+
+it('teaches the wait pattern in the tool description and help rules', () => {
+  expect(tool('inspect_job').description).toContain('waitMs');
+  expect(helpDocument().rules.join(' ')).toContain('waitMs');
 });

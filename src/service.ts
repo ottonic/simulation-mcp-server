@@ -2,6 +2,8 @@ import { mkdir, readdir, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { z } from 'zod';
+import { onAbort } from './abort.js';
+import { pollUntilTerminal } from './jobs.js';
 import { Artifacts, digest, MAX_OUTPUT_BYTES } from './artifacts.js';
 import { SimulationError, errorData, requireThat } from './errors.js';
 import {
@@ -1058,7 +1060,7 @@ export class Simulation {
     const artifact = await this.artifacts.put(dir, 'case.json', JSON.stringify(document), 'json');
     return { case: artifact, configuration: document };
   }
-  async prepareStudy(input: unknown) {
+  async prepareStudy(input: unknown, signal?: AbortSignal) {
     const study = studySchema.parse(input);
     const dir = await this.artifacts.directory();
     const studyRef = await this.artifacts.put(dir, 'study.json', JSON.stringify(study), 'json');
@@ -1074,10 +1076,19 @@ export class Simulation {
     };
     await this.persistPreparation(dir, state);
     const abort = new AbortController();
+    // A cancelled or timed-out client request stops the mesh instead of
+    // leaving it running unattended (spec: servers SHOULD stop on cancellation).
+    const onAbort = () => abort.abort();
+    if (signal) {
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+    }
     const entry: ActivePreparation = { abort, state, done: Promise.resolve() };
     this.preparations.set(state.jobId, entry);
     entry.done = this.executePreparation(dir, state, study, abort.signal)
+      .finally(() => signal?.removeEventListener('abort', onAbort))
       .catch(async () => {
+        if (abort.signal.aborted) return;
         state.status = 'failed';
         state.error = {
           code: 'persistence_failed',
@@ -1255,10 +1266,25 @@ export class Simulation {
     );
     return { prepared, document };
   }
-  async runStudy(preparedRef: ArtifactRef) {
+  async runStudy(preparedRef: ArtifactRef, signal?: AbortSignal) {
     const prepared = await this.artifacts.json(preparedRef, preparedStudySchema);
-    return this.start(prepared.case, preparedRef);
+    const job = await this.start(prepared.case, preparedRef);
+    // Stop the solver if the caller goes away. Cancellation is cooperative: the
+    // run record ends as `cancelled` whether or not the process had begun.
+    const startedJob = job as { runId?: string; jobId?: string };
+    const jobId = startedJob.runId ?? startedJob.jobId;
+    if (jobId) onAbort(signal, () => void this.cancel(jobId).catch(() => {}));
+    return job;
   }
+  /**
+   * Wait up to `waitMs` for a job to reach a terminal state, then return it.
+   * Polling happens in-process, so a caller replaces dozens of round-trips
+   * with one call. Returns the current state either way.
+   */
+  async waitForJob(jobId: string, waitMs: number) {
+    return pollUntilTerminal(() => this.inspectJob(jobId), waitMs);
+  }
+
   async inspectJob(jobId: string) {
     id.parse(jobId);
     const livePreparation = this.preparations.get(jobId);

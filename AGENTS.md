@@ -10,6 +10,11 @@
   requires an external isolation boundary.
 - Keep dependencies and test inputs server-local. Do not invoke other MCP servers
   from the implementation or rely on another repository's tests.
+- Never advertise the workspace [`contracts/`](../../contracts/) schemas as a tool
+  `outputSchema`: they use cross-file `$ref`, which MCP clients must not
+  dereference. Advertised schemas must be self-contained. See
+  [ENGINEERING-ARTIFACT-CONTRACT.md](../../ENGINEERING-ARTIFACT-CONTRACT.md)
+  §Relationship to MCP.
 - Use strict TypeScript, ESM imports with `.js` extensions, single quotes, and
   existing Prettier/oxlint conventions.
 - Prefer `just` recipes. Run `just check` in the `checks` Nix shell for fast

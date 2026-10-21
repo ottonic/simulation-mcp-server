@@ -88,6 +88,12 @@ const capabilitiesOutputSchema = z.strictObject({
     }),
   ),
   workflow: z.array(z.string()),
+  study: z.strictObject({
+    required: z.array(z.string()),
+    optional: z.array(z.string()),
+    notes: z.array(z.string()),
+    example: z.record(z.string(), z.unknown()),
+  }),
 });
 
 const validationOutputSchema = z.strictObject({
@@ -190,8 +196,17 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
       'Snapshot a local STEP file and inspect SI-normalized geometry. Supply exactly one URI or revisioned STEP artifact. Returned entity tags are scoped to the model inspection; labels are hints, never engineering assignments.',
     inputSchema: z
       .strictObject({
-        uri: z.string().optional(),
-        source: artifactSchema.optional(),
+        uri: z
+          .string()
+          .optional()
+          .describe(
+            'STEP file to inspect, as a file: URI or absolute path. Supply this or source, not both.',
+          ),
+        source: artifactSchema
+          .optional()
+          .describe(
+            'Revision-bound source artifact instead of a raw URI. Supply this or uri, not both.',
+          ),
       })
       .refine(
         (value) => (value.uri === undefined) !== (value.source === undefined),
@@ -212,10 +227,19 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     description:
       'List inspected model entities, optionally filtered by dimension. Entity IDs and labels belong to this exact inspection revision. Use returned IDs to define study selections.',
     inputSchema: z.strictObject({
-      model: artifactSchema,
-      dimension: z.union([z.literal(2), z.literal(3)]).optional(),
-      cursor: z.string().optional(),
-      limit: z.number().int().positive().max(200).optional(),
+      model: artifactSchema.describe('The inspection artifact returned by inspect_model.'),
+      dimension: z
+        .union([z.literal(2), z.literal(3)])
+        .optional()
+        .describe('Keep only entities of this dimension: 2 = surfaces, 3 = solids.'),
+      cursor: z.string().optional().describe('Pagination cursor from the previous page.'),
+      limit: z
+        .number()
+        .int()
+        .positive()
+        .max(200)
+        .optional()
+        .describe('Entities per page, at most 200 (default 100).'),
     }),
     outputSchema: modelQueryOutputSchema,
     annotations: READ_ONLY,
@@ -225,8 +249,14 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     name: 'validate_study',
     title: 'Validate Study',
     description:
-      'Validate a complete study draft and explain missing or unsupported inputs without launching Gmsh or Elmer.',
-    inputSchema: z.strictObject({ study: z.record(z.string(), z.unknown()) }),
+      'Validate a complete study draft and explain missing or unsupported inputs without launching Gmsh or Elmer. The study shape, per-physics fields and a worked example are in get_capabilities.study.',
+    inputSchema: z.strictObject({
+      study: z
+        .record(z.string(), z.unknown())
+        .describe(
+          'The study draft. Required and optional fields, per-physics material and boundary fields, observation quantities, and a worked example are in get_capabilities.study; simulation://help carries the full JSON Schema.',
+        ),
+    }),
     outputSchema: validationOutputSchema,
     annotations: READ_ONLY,
     handler: async (simulation, args) => simulation.validateStudy(args.study),
@@ -236,21 +266,29 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     title: 'Prepare Study',
     description:
       'Queue validation, meshing and solver-input generation for an available study type in the background. Transient thermal requires density, heat capacity, a uniform initial temperature, timestep and step count. Transient flow uses first-order BDF with explicit quiescent initial velocity. Returns a jobId immediately; inspect_job polls until the prepared-study artifact is available.',
-    inputSchema: z.strictObject({ study: studySchema }),
+    inputSchema: z.strictObject({
+      study: studySchema.describe(
+        'The study to prepare. get_capabilities.study lists every field; validate_study explains missing or unsupported inputs before anything is meshed.',
+      ),
+    }),
     outputSchema: preparationJobSchema,
     annotations: WRITE,
-    handler: async (simulation, args) => simulation.prepareStudy(args.study),
+    handler: async (simulation, args, ctx) => simulation.prepareStudy(args.study, ctx.signal),
   }),
   defineTool({
     name: 'run_study',
     title: 'Run Study',
     description:
       'Execute an immutable prepared study asynchronously. Returns a jobId; use inspect_job, list_jobs, query_results or cancel_job.',
-    inputSchema: z.strictObject({ prepared: artifactSchema }),
+    inputSchema: z.strictObject({
+      prepared: artifactSchema.describe(
+        'The prepared-study artifact returned by prepare_study (inspect_job.prepared once the prepare job succeeds). It pins the mesh and solver inputs, so the solve cannot pick up a changed study.',
+      ),
+    }),
     outputSchema: jobSchema,
     annotations: WRITE,
-    handler: async (simulation, args) => {
-      const run = await simulation.runStudy(args.prepared);
+    handler: async (simulation, args, ctx) => {
+      const run = await simulation.runStudy(args.prepared, ctx.signal);
       const { runId, ...rest } = run;
       return { ...rest, jobId: runId };
     },
@@ -259,11 +297,25 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     name: 'inspect_job',
     title: 'Inspect Job',
     description:
-      'Inspect preparation or solver job status, diagnostics and available artifacts. Interrupted jobs are not resumed automatically.',
-    inputSchema: z.strictObject({ jobId: id }),
+      'Inspect preparation or solver job status, diagnostics and available artifacts. Pass waitMs to wait for a terminal state instead of polling; interrupted jobs are not resumed automatically.',
+    inputSchema: z.strictObject({
+      jobId: id.describe('Job id from prepare_study or run_study.'),
+      waitMs: z
+        .number()
+        .int()
+        .positive()
+        .max(60_000)
+        .optional()
+        .describe(
+          'Wait up to this many milliseconds for the job to finish, then return its state (max 60000). Prefer one call with waitMs 60000 over repeated polling; the status may still be preparing/running when the window expires.',
+        ),
+    }),
     outputSchema: operationJobSchema,
     annotations: READ_ONLY,
-    handler: async (simulation, args) => simulation.inspectJob(args.jobId),
+    handler: async (simulation, args) =>
+      args.waitMs
+        ? simulation.waitForJob(args.jobId, args.waitMs)
+        : simulation.inspectJob(args.jobId),
   }),
   defineTool({
     name: 'list_jobs',
@@ -281,12 +333,32 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     description:
       "Retrieve bounded evidence for a solver job: status, convergence, observations and acceptance, the summaries backing them, distinct output fields, and a paginated artifact page. Pass include:['summaries'] for the full history, observations to filter, time to select the frame for observations without an explicit time, and limit/cursor to page artifacts.",
     inputSchema: z.strictObject({
-      jobId: id,
-      include: z.array(z.enum(['summaries'])).optional(),
-      observations: z.array(z.string()).optional(),
-      time: z.number().nonnegative().optional(),
-      limit: z.number().int().positive().max(500).optional(),
-      cursor: z.string().optional(),
+      jobId: id.describe('Solver job id returned by run_study.'),
+      include: z
+        .array(z.enum(['summaries']))
+        .optional()
+        .describe(
+          "Pass ['summaries'] to include the full summary history rather than only the latest observations.",
+        ),
+      observations: z
+        .array(z.string())
+        .optional()
+        .describe('Keep only these observation ids (as defined in the study).'),
+      time: z
+        .number()
+        .nonnegative()
+        .optional()
+        .describe(
+          'For time-dependent studies: the timestep-aligned time in seconds to read. Defaults to the final step.',
+        ),
+      limit: z
+        .number()
+        .int()
+        .positive()
+        .max(500)
+        .optional()
+        .describe('Artifacts per page, at most 500 (default 100).'),
+      cursor: z.string().optional().describe('Pagination cursor from the previous page.'),
     }),
     outputSchema: queryResultsOutputSchema,
     annotations: READ_ONLY,
@@ -304,7 +376,9 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     title: 'Cancel Job',
     description:
       'Cancel an active preparation or solver job owned by this server. Child processes are stopped before cancellation is reported; partial artifacts are retained.',
-    inputSchema: z.strictObject({ jobId: id }),
+    inputSchema: z.strictObject({
+      jobId: id.describe('Job id of the active preparation or solver job to stop.'),
+    }),
     outputSchema: operationJobSchema,
     annotations: DESTRUCTIVE,
     handler: async (simulation, args) => simulation.cancelJob(args.jobId),

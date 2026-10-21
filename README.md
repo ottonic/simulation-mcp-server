@@ -86,11 +86,20 @@ the Nix shell):
 The public workflow is `get_capabilities` → `inspect_model` → `query_model` →
 `validate_study` → `prepare_study` → `run_study` → `inspect_job` →
 `query_results`. `list_jobs` recovers recent jobs after context loss and
-`cancel_job` stops an active preparation or solver process. Preparation and
+`cancel_job` stops an active preparation or solver process.
+
+`inspect_job` accepts `waitMs` (up to 60 s) and then waits in-process for a
+terminal state instead of returning immediately, so
+`prepare_study → inspect_job(waitMs) → run_study → inspect_job(waitMs) →
+query_results` is normally five calls rather than dozens of polls. The state
+is returned whether or not the window expires. A cancelled or timed-out
+client request stops the mesh or the solve: `ctx.signal` is forwarded to the
+job's abort path and the record ends `cancelled`. Preparation and
 solver execution return job IDs immediately. Jobs survive client disconnects,
 not server shutdown. Interrupted jobs are recorded and are not resumed.
 
-`get_capabilities` reports the available physics; the machine-readable
+`get_capabilities` reports the available physics and the study shape
+(required and optional fields, notes, and a worked example); the machine-readable
 `simulation://help` resource carries the full study schema — per-physics
 material and boundary fields with units, regimes, observation quantities with
 time/mode selectors, enums, and a parseable example. Both are generated from one
@@ -358,11 +367,12 @@ Licensing and upstream source references are recorded in
 `npm pack` builds first and includes compiled runtime code, the local artifact
 schema, Python worker, README, and third-party notices. Tests, source maps, and
 Python caches are excluded. Install the tarball to check `simulation-mcp-server`
-with a compatible MCP client. The server requires protocol `2026-07-28` and
-rejects legacy negotiation. Native tools still require separate installation.
+with a compatible MCP client. The server serves both protocol eras: the
+`2025-11-25` handshake that stock MCP hosts negotiate, and `2026-07-28`
+through `server/discover`. Native tools still require separate installation.
 
 `just check` includes solver-independent stdio protocol tests for modern
-discovery, workflow resources, tool errors, and explicit legacy rejection.
+discovery, workflow resources, tool errors, and both protocol eras.
 
 A project license must be selected and added before public release; third-party
 notices do not license this server's own code.
