@@ -366,7 +366,10 @@ export const studySchema = z.strictObject({
     .strictObject({
       minSize: z.number().positive().max(1000),
       maxSize: z.number().positive().max(1000),
-      elementOrder: z.literal(1),
+      elementOrder: z.literal(1).meta({
+        description:
+          'Mesh element order. Only 1 (linear elements) is implemented; quadratic elements are not available.',
+      }),
     })
     .refine((mesh) => mesh.minSize <= mesh.maxSize, 'minSize must not exceed maxSize'),
   physics: z.discriminatedUnion('kind', [
