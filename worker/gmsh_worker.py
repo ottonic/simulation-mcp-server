@@ -23,20 +23,45 @@ def inspect(source):
     require(text.lstrip().startswith("ISO-10303-21;"), "Expected STEP Part 21")
     definitions = re.findall(r"#[0-9]+\s*=\s*(.*?);", text, re.DOTALL)
     length_defs = [d for d in definitions if "LENGTH_UNIT" in d]
-    units = set()
+    conversion_units = set()
+    si_units = set()
+    conversion_aliases = {
+        "in": "in",
+        "inch": "in",
+        "inches": "in",
+        "ft": "ft",
+        "foot": "ft",
+        "feet": "ft",
+        "mil": "mil",
+        "thou": "mil",
+    }
     for definition in length_defs:
+        conversion = re.search(
+            r"CONVERSION_BASED_UNIT\s*\(\s*'([^']+)'", definition
+        )
+        if conversion is not None:
+            keyword = conversion[1].strip().lower()
+            require(
+                keyword in conversion_aliases,
+                f"Unsupported conversion-based STEP length unit: {conversion[1]}",
+            )
+            conversion_units.add(conversion_aliases[keyword])
+            continue
         match = re.search(
             r"SI_UNIT\s*\(\s*(\$|\.MILLI\.|\.CENTI\.|\.MICRO\.)\s*,\s*\.METRE\.\s*\)",
             definition,
         )
-        require(
-            match is not None,
-            "Unsupported/unknown STEP length unit; supply a STEP with explicit SI length units",
-        )
-        units.add(
-            {"$": "m", ".MILLI.": "mm", ".CENTI.": "cm", ".MICRO.": "um"}[match[1]]
-        )
-    require(len(units) == 1, "STEP must declare one unambiguous SI length unit")
+        if match is not None:
+            si_units.add(
+                {"$": "m", ".MILLI.": "mm", ".CENTI.": "cm", ".MICRO.": "um"}[match[1]]
+            )
+    # A conversion-based unit's definition also references a base SI unit; the
+    # conversion is the effective one. Prefer it rather than reporting two units.
+    units = conversion_units or si_units
+    require(
+        len(units) == 1,
+        "STEP must declare one unambiguous SI or supported imperial length unit",
+    )
     unit = next(iter(units))
     gmsh.option.setString("Geometry.OCCTargetUnit", "M")
     gmsh.model.occ.importShapes(source, highestDimOnly=True, format="step")
@@ -66,7 +91,15 @@ def inspect(source):
         "protocol": 1,
         "gmshVersion": gmsh.__version__,
         "sourceUnits": unit,
-        "scaleToMeters": {"m": 1, "mm": 0.001, "cm": 0.01, "um": 0.000001}[unit],
+        "scaleToMeters": {
+            "m": 1,
+            "mm": 0.001,
+            "cm": 0.01,
+            "um": 0.000001,
+            "in": 0.0254,
+            "ft": 0.3048,
+            "mil": 0.0000254,
+        }[unit],
         "idScheme": "gmsh-occ-import-v1",
         "frame": {
             "id": "step-world-si",

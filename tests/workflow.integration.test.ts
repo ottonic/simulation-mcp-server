@@ -242,6 +242,22 @@ it('completes STEP → explicit groups → native mesh → SIF → Elmer → ana
   }
 }, 240000);
 
+it('imports an inch STEP and normalizes it to SI metres', async () => {
+  const simulation = await service();
+  try {
+    const inch = fileURLToPath(new URL('./fixtures/bar-inch.step', import.meta.url));
+    const inspected = await simulation.inspect({ uri: pathToFileURL(inch).href });
+    expect(inspected.inventory.sourceUnits).toBe('in');
+    expect(inspected.inventory.scaleToMeters).toBe(0.0254);
+    const volume = inspected.inventory.entities.find((e) => e.dimension === 3)!;
+    // 4 x 0.5 x 0.5 in = 1 in^3 = 1.6387064e-5 m^3
+    expect(volume.measure).toBeCloseTo(1.6387064e-5, 12);
+    expect(volume.bounds[3] - volume.bounds[0]).toBeCloseTo(0.1016, 6);
+  } finally {
+    await simulation.close();
+  }
+}, 120000);
+
 it('runs the pinned HeatSolve transient benchmark with volumetric heating', async () => {
   const simulation = await service();
   try {

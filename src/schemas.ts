@@ -255,7 +255,7 @@ const triple = z.tuple([z.number(), z.number(), z.number()]);
 export const inventorySchema = z.strictObject({
   protocol: z.literal(1),
   gmshVersion: z.string(),
-  sourceUnits: z.enum(['m', 'mm', 'cm', 'um']),
+  sourceUnits: z.enum(['m', 'mm', 'cm', 'um', 'in', 'ft', 'mil']),
   scaleToMeters: z.number().positive(),
   idScheme: z.literal('gmsh-occ-import-v1'),
   frame: z.strictObject({
