@@ -10,8 +10,8 @@ The Nix environment provisions these independently licensed tools:
   licensing. The solver library uses LGPL terms; ElmerGrid and other components
   carry their own notices. Preserve upstream `license_texts` when redistributing
   the toolchain. Pinned source: `61a3d3d9b971923555bb56a800ebec8df9482acd`.
-- MCP TypeScript SDK: Apache-2.0; Zod: MIT; Node.js and Python retain their
-  upstream distribution notices.
+- MCP TypeScript SDK: Apache-2.0; Zod: MIT; unitsnet-js: MIT; Node.js and Python
+  retain their upstream distribution notices.
 
 Upstream sources consulted for implemented protocol/keywords:
 

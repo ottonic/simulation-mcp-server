@@ -513,14 +513,16 @@ export const PHYSICS_CATALOG: PhysicsHelp[] = [
 
 const STUDY_SHAPE = {
   required: ['schemaVersion', 'name', 'objective', 'model', 'selections', 'mesh', 'physics'],
-  optional: ['observations', 'acceptanceCriteria', 'assumptions'],
+  optional: ['observations', 'acceptanceCriteria', 'assumptions', 'displayUnits'],
   notes: [
     'schemaVersion is "1".',
     'model needs { source, inspection } artifact references returned by inspect_model.',
     'selections use dimension-qualified entity IDs (3:tag, 2:tag) and must cover every inspected entity exactly once.',
-    'mesh is { minSize, maxSize, elementOrder: 1 } with SI meter sizes.',
+    'mesh is { minSize, maxSize, units?, elementOrder: 1 }; units defaults to m and accepts mm, cm, in or ft.',
+    'Quantities accept compatible engineering units such as mm, in, psi, ksi, lbf, degC and degF; the server converts them to SI.',
     'Each observation is { id, quantity, time?, mode? }; id must be unique, quantity comes from the physics entry.',
-    'acceptanceCriteria compare an observation id against a threshold whose units match the observed quantity.',
+    'acceptanceCriteria compare an observation id against a threshold in a compatible unit; both are converted to SI.',
+    'displayUnits optionally chooses result units, e.g. { length: "in", pressure: "ksi" }; observations are returned in those units.',
   ],
   example: {
     schemaVersion: '1',
@@ -574,6 +576,7 @@ const HELP_RULES = [
   'Call inspect_model with a file: URI to obtain source and inspection artifact references; pass both into the study model block.',
   'Define selections with dimension-qualified entity IDs (3:tag for solids, 2:tag for surfaces). Every inspected entity must be assigned exactly once and each solid selection must contain one solid.',
   'Assign exactly one material per solid selection and one explicit condition per surface selection; thermal surfaces default to insulated unless overridden.',
+  'Quantities may be supplied in compatible engineering units (including inches, psi, ksi, lbf and °F); the server converts to SI. Mesh sizes default to metres and accept mm, cm, in or ft.',
   'Every observation needs a unique id and a quantity from the physics entry. Transient quantities may set time in seconds (timestep-aligned); modal eigenfrequency requires mode.',
   'Thermal studies require defaultBoundary: "insulated"; optional sources use volumetricHeat in W/m3.',
   'Run prepare_study, wait with inspect_job({ jobId, waitMs }) until the prepared artifact appears, then run_study and wait again; read evidence with query_results. A single bounded wait replaces repeated polling, and work stops if the client cancels the request. Jobs survive client disconnects, not server shutdown.',

@@ -6,6 +6,7 @@ import { onAbort } from './abort.js';
 import { pollUntilTerminal } from './jobs.js';
 import { Artifacts, digest, MAX_OUTPUT_BYTES } from './artifacts.js';
 import { SimulationError, errorData, requireThat } from './errors.js';
+import { fromSI } from './units.js';
 import {
   artifactSchema,
   caseSchema,
@@ -166,6 +167,30 @@ export type QueryResultsOptions = {
   limit?: number;
   cursor?: string;
 };
+const OBSERVATION_DIMENSIONS: Readonly<Record<string, string>> = {
+  temperature_min: 'temperature',
+  temperature_max: 'temperature',
+  temperature_mean: 'temperature',
+  heat_flux_magnitude_mean: 'heatFlux',
+  displacement_magnitude_min: 'length',
+  displacement_magnitude_max: 'length',
+  displacement_magnitude_mean: 'length',
+  displacement_x_min: 'length',
+  displacement_x_max: 'length',
+  displacement_x_mean: 'length',
+  stress_xx_min: 'pressure',
+  stress_xx_max: 'pressure',
+  stress_xx_mean: 'pressure',
+  von_mises_stress_max: 'pressure',
+  potential_min: 'potential',
+  potential_max: 'potential',
+  potential_mean: 'potential',
+  velocity_magnitude_max: 'speed',
+  velocity_x_max: 'speed',
+  pressure_min: 'pressure',
+  pressure_max: 'pressure',
+};
+
 export class Simulation {
   private active = new Map<string, { abort: AbortController; done: Promise<void>; state: Run }>();
   private preparations = new Map<string, ActivePreparation>();
@@ -1471,6 +1496,31 @@ export class Simulation {
           units: observation.units,
         };
       });
+    const displayUnits = prepared?.study.displayUnits as
+      Record<string, string | undefined> | undefined;
+    if (displayUnits) {
+      const displayUnit = (quantity: string) => {
+        const dimension = OBSERVATION_DIMENSIONS[quantity];
+        return dimension ? displayUnits[dimension] : undefined;
+      };
+      for (const observation of observations) {
+        if (observation.status !== 'available') continue;
+        const unit = displayUnit(observation.quantity);
+        if (!unit) continue;
+        observation.value = fromSI(observation.value!, unit);
+        observation.units = unit;
+      }
+      for (const item of acceptance) {
+        if (!('value' in item) || item.value === undefined || item.threshold === undefined)
+          continue;
+        const observation = observations.find((entry) => entry.id === item.observationId);
+        const unit = observation ? displayUnit(observation.quantity) : undefined;
+        if (!unit) continue;
+        item.value = fromSI(item.value, unit);
+        item.threshold = fromSI(item.threshold, unit);
+        item.units = unit;
+      }
+    }
     const timeMatches = (item: (typeof run.summaries)[number]) =>
       options.time === undefined ||
       (item.time !== undefined &&

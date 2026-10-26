@@ -158,8 +158,14 @@ and surfaces. Every inspected entity must be assigned exactly once. Each solid
 selection needs one material; every surface selection defaults to insulated
 in thermal studies unless explicitly overridden. Structural, modal, and DC
 studies require explicit conditions on every surface. A thermal default is a
-declared engineering assumption, not an inferred boundary condition. Linear
-tetrahedra use SI units.
+declared engineering assumption, not an inferred boundary condition. The
+solver uses SI units, but study quantities may be supplied in compatible
+engineering units (for example `mm`, `in`, `psi`, `ksi`, `lbf`, `degC`) and are
+converted at the API boundary. Mesh sizes default to metres and accept `mm`,
+`cm`, `in` or `ft` through `mesh.units`. Results are SI by default; an optional
+`displayUnits` block (for example `{ "length": "in", "pressure": "ksi" }`)
+returns observations in the engineer's units. Linear tetrahedra are still the
+only supported element type.
 
 Example steady thermal study after inspecting the STEP file:
 

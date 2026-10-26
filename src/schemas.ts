@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { z } from 'zod';
+import { dimensionOfCanonical, toSI } from './units.js';
 
 export const artifactContract = JSON.parse(
   readFileSync(new URL('../contracts/artifact-ref.schema.json', import.meta.url), 'utf8'),
@@ -13,13 +14,22 @@ export type ArtifactRef = {
 };
 export const artifactSchema = z.fromJSONSchema(artifactContract) as z.ZodType<ArtifactRef>;
 export const id = z.string().uuid().describe('Job id returned by prepare_study or run_study.');
+const lengthUnits = z.enum(['m', 'mm', 'cm', 'in', 'ft']).default('m').meta({
+  description: 'Unit of minSize and maxSize. Converted to metres before meshing.',
+});
+
 export const controlsSchema = z
   .strictObject({
     minSize: z.number().positive().max(1000),
     maxSize: z.number().positive().max(1000),
-    units: z.literal('m'),
+    units: lengthUnits,
   })
-  .refine((x) => x.minSize <= x.maxSize, 'minSize must not exceed maxSize');
+  .refine((x) => x.minSize <= x.maxSize, 'minSize must not exceed maxSize')
+  .transform((input) => ({
+    minSize: toSI(input.minSize, input.units).value,
+    maxSize: toSI(input.maxSize, input.units).value,
+    units: 'm' as const,
+  }));
 export const groupSchema = z.strictObject({
   id: z.number().int().min(1).max(999),
   name: z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,47}$/),
@@ -27,11 +37,58 @@ export const groupSchema = z.strictObject({
   entities: z.array(z.number().int().positive()).min(1),
 });
 export type Group = z.infer<typeof groupSchema>;
+/**
+ * A study quantity. The caller may express it in any compatible engineering
+ * unit; the parsed value is stored in the canonical SI unit named here, so the
+ * solver never sees an implicit unit and the model never performs the
+ * conversion.
+ */
 export const quantity = <T extends string>(units: T, positive = false) =>
-  z.strictObject({
-    value: positive ? z.number().positive() : z.number(),
-    units: z.literal(units),
-  });
+  z
+    .strictObject({
+      value: z.number().finite(),
+      units: z
+        .string()
+        .min(1)
+        .meta({
+          description: `Unit of the value. Any compatible engineering unit is accepted and converted to ${units}.`,
+        }),
+    })
+    .transform((input, ctx) => {
+      const expected = dimensionOfCanonical(units);
+      if (!expected) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `internal error: no dimension for canonical unit ${units}`,
+        });
+        return z.NEVER;
+      }
+      let converted;
+      try {
+        converted = toSI(input.value, input.units);
+      } catch (error) {
+        ctx.addIssue({
+          code: 'custom',
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return z.NEVER;
+      }
+      if (converted.dimension !== expected) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `unit '${input.units}' is not compatible with ${units}`,
+        });
+        return z.NEVER;
+      }
+      if (positive && converted.value <= 0) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'value must be greater than zero',
+        });
+        return z.NEVER;
+      }
+      return { value: converted.value, units };
+    });
 const thermalFields = {
   materials: z
     .array(
@@ -366,12 +423,33 @@ export const studySchema = z.strictObject({
     .strictObject({
       minSize: z.number().positive().max(1000),
       maxSize: z.number().positive().max(1000),
+      units: lengthUnits.optional(),
       elementOrder: z.literal(1).meta({
         description:
           'Mesh element order. Only 1 (linear elements) is implemented; quadratic elements are not available.',
       }),
     })
+    .transform((input) => {
+      const unit = input.units ?? 'm';
+      return {
+        minSize: toSI(input.minSize, unit).value,
+        maxSize: toSI(input.maxSize, unit).value,
+        units: 'm' as const,
+        elementOrder: input.elementOrder,
+      };
+    })
     .refine((mesh) => mesh.minSize <= mesh.maxSize, 'minSize must not exceed maxSize'),
+  displayUnits: z
+    .strictObject({
+      length: z.enum(['m', 'mm', 'cm', 'in', 'ft']).optional(),
+      pressure: z.enum(['Pa', 'kPa', 'MPa', 'psi', 'ksi']).optional(),
+      temperature: z.enum(['K', 'degC', 'degF']).optional(),
+      force: z.enum(['N', 'kN', 'lbf', 'kip']).optional(),
+      speed: z.enum(['m/s', 'mm/s', 'in/s', 'ft/s']).optional(),
+      heatFlux: z.enum(['W/m2', 'W/mm2', 'Btu/(h.ft2)']).optional(),
+      potential: z.enum(['V', 'mV']).optional(),
+    })
+    .optional(),
   physics: z.discriminatedUnion('kind', [
     z.strictObject({
       kind: z.literal('steady-thermal'),
