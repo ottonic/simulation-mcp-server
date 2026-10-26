@@ -6,7 +6,7 @@ import { onAbort } from './abort.js';
 import { pollUntilTerminal } from './jobs.js';
 import { Artifacts, digest, MAX_OUTPUT_BYTES } from './artifacts.js';
 import { SimulationError, errorData, requireThat } from './errors.js';
-import { fromSI } from './units.js';
+import { dimensionOfCanonical, fromSI, toSI } from './units.js';
 import {
   artifactSchema,
   caseSchema,
@@ -54,6 +54,37 @@ const inspectionSchema = z.strictObject({
   source: artifactSchema,
   inventory: inventorySchema,
 });
+
+function acceptanceThresholdMatches(
+  threshold: { value: number; units: string },
+  expectedUnit: string | undefined,
+) {
+  if (!expectedUnit) return false;
+  if (expectedUnit === 'Hz') return threshold.units === 'Hz';
+  try {
+    return toSI(threshold.value, threshold.units).dimension === dimensionOfCanonical(expectedUnit);
+  } catch {
+    return false;
+  }
+}
+
+function acceptanceValues(
+  threshold: { value: number; units: string },
+  observation: { value?: number; units?: string },
+) {
+  if (observation.value === undefined || !observation.units) return undefined;
+  if (threshold.units === 'Hz' && observation.units === 'Hz')
+    return { limit: threshold.value, actual: observation.value };
+  try {
+    const limit = toSI(threshold.value, threshold.units);
+    const actual = toSI(observation.value, observation.units);
+    return limit.dimension === actual.dimension
+      ? { limit: limit.value, actual: actual.value }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function checkBoundaryNodeConflicts(
   config: Thermal | StaticStructural | Modal | DcConduction | LaminarFlowConfig,
@@ -515,7 +546,10 @@ export class Simulation {
               const observation = study.observations.find(
                 (item) => item.id === criterion.observationId,
               )!;
-              return criterion.threshold.units === expectedUnits[observation.quantity];
+              return acceptanceThresholdMatches(
+                criterion.threshold,
+                expectedUnits[observation.quantity],
+              );
             }),
           'invalid_study',
           'Acceptance threshold units must match the observed quantity.',
@@ -622,7 +656,8 @@ export class Simulation {
                 (item) => item.id === criterion.observationId,
               );
               return (
-                observation && criterion.threshold.units === expectedUnits[observation.quantity]
+                observation &&
+                acceptanceThresholdMatches(criterion.threshold, expectedUnits[observation.quantity])
               );
             }),
           'invalid_study',
@@ -703,7 +738,7 @@ export class Simulation {
             ) &&
             study.acceptanceCriteria.every((criterion) => {
               const observation = observations.find((item) => item.id === criterion.observationId);
-              return observation && criterion.threshold.units === 'Hz';
+              return observation && acceptanceThresholdMatches(criterion.threshold, 'Hz');
             }),
           'invalid_study',
           'Modal observations must request a mode from the solved range and use Hz acceptance thresholds.',
@@ -781,7 +816,8 @@ export class Simulation {
                 (item) => item.id === criterion.observationId,
               );
               return (
-                observation && criterion.threshold.units === expectedUnits[observation.quantity]
+                observation &&
+                acceptanceThresholdMatches(criterion.threshold, expectedUnits[observation.quantity])
               );
             }),
           'invalid_study',
@@ -839,7 +875,8 @@ export class Simulation {
                 (item) => item.id === criterion.observationId,
               );
               return (
-                observation && criterion.threshold.units === expectedUnits[observation.quantity]
+                observation &&
+                acceptanceThresholdMatches(criterion.threshold, expectedUnits[observation.quantity])
               );
             }),
           'invalid_study',
@@ -1468,18 +1505,18 @@ export class Simulation {
       )
       .map((criterion) => {
         const observation = observations.find((item) => item.id === criterion.observationId);
-        if (
-          !observation ||
-          observation.status !== 'available' ||
-          observation.units !== criterion.threshold.units
-        )
+        const converted =
+          observation?.status === 'available'
+            ? acceptanceValues(criterion.threshold, observation)
+            : undefined;
+        if (!observation || !converted)
           return {
             observationId: criterion.observationId,
             status: 'inconclusive' as const,
-            reason: 'Observation unavailable or threshold units do not match.',
+            reason: 'Observation unavailable or threshold units are incompatible.',
           };
-        const value = observation.value!;
-        const threshold = criterion.threshold.value;
+        const value = converted.actual;
+        const threshold = converted.limit;
         const pass =
           criterion.operator === '<'
             ? value < threshold
@@ -1525,11 +1562,14 @@ export class Simulation {
       options.time === undefined ||
       (item.time !== undefined &&
         Math.abs(item.time.value - options.time) <= Math.max(1, Math.abs(options.time)) * 1e-9);
-    // Default summaries are the evidence backing the returned observations;
-    // the full history is available only when explicitly requested.
+    // Observations already contain the selected value, unit, method and source;
+    // return summaries on request, or as a fallback when no observation was
+    // declared. Full history remains opt-in.
     const summaries = options.include?.includes('summaries')
       ? run.summaries.filter(timeMatches)
-      : [...backing.values()];
+      : observations.length === 0 && options.observations === undefined
+        ? run.summaries.filter(timeMatches)
+        : [];
     const fields = [
       ...new Map(
         run.results
@@ -1550,6 +1590,9 @@ export class Simulation {
     const artifacts = run.outputs.slice(offset, offset + limit);
     const nextCursor = offset + limit < run.outputs.length ? String(offset + limit) : undefined;
     return {
+      jobId: run.runId,
+      source: run.source,
+      ...(run.prepared === undefined ? {} : { preparedStudy: run.prepared }),
       status: run.status,
       convergence: run.convergence,
       summaries,

@@ -105,6 +105,7 @@ export const PHYSICS: PhysicsDefinition[] = [
       materials: physics.materials.map((material) => ({
         group: context.groupId.get(material.selection)!,
         conductivity: material.conductivity,
+        ...(material.reference === undefined ? {} : { reference: material.reference }),
       })),
       sources: physics.sources.map((source) => ({
         group: context.groupId.get(source.selection)!,
@@ -133,6 +134,7 @@ export const PHYSICS: PhysicsDefinition[] = [
         conductivity: material.conductivity,
         density: material.density,
         heatCapacity: material.heatCapacity,
+        ...(material.reference === undefined ? {} : { reference: material.reference }),
       })),
       sources: physics.sources.map((source) => ({
         group: context.groupId.get(source.selection)!,
@@ -164,6 +166,7 @@ export const PHYSICS: PhysicsDefinition[] = [
         group: groupId.get(material.selection)!,
         youngsModulus: material.youngsModulus,
         poissonRatio: material.poissonRatio,
+        ...(material.reference === undefined ? {} : { reference: material.reference }),
       })),
       boundaries: physics.boundaries.map((boundary) => {
         const group = groupId.get(boundary.selection)!;
@@ -214,6 +217,7 @@ export const PHYSICS: PhysicsDefinition[] = [
         youngsModulus: material.youngsModulus,
         poissonRatio: material.poissonRatio,
         density: material.density,
+        ...(material.reference === undefined ? {} : { reference: material.reference }),
       })),
       boundaries: physics.boundaries.map((boundary) => {
         const group = groupId.get(boundary.selection)!;
@@ -239,6 +243,7 @@ export const PHYSICS: PhysicsDefinition[] = [
       materials: physics.materials.map((material) => ({
         group: groupId.get(material.selection)!,
         electricalConductivity: material.electricalConductivity,
+        ...(material.reference === undefined ? {} : { reference: material.reference }),
       })),
       boundaries: physics.boundaries.map((boundary) => {
         const group = groupId.get(boundary.selection)!;
@@ -269,6 +274,7 @@ export const PHYSICS: PhysicsDefinition[] = [
         group: groupId.get(material.selection)!,
         density: material.density,
         dynamicViscosity: material.dynamicViscosity,
+        ...(material.reference === undefined ? {} : { reference: material.reference }),
       })),
       boundaries: physics.boundaries.map((boundary) => {
         const group = groupId.get(boundary.selection)!;

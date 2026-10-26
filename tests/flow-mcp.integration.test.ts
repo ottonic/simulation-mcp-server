@@ -15,6 +15,9 @@ type Inspected = {
 };
 
 type QueryResult = {
+  jobId: string;
+  source: ArtifactRef;
+  preparedStudy?: ArtifactRef;
   status: string;
   fields: { name: string; components: number; units?: string }[];
   observations: {
@@ -107,7 +110,15 @@ async function runThroughMcp(
     arguments: { jobId: runId },
   });
   expect(queried.isError, JSON.stringify(queried)).not.toBe(true);
-  return queried.structuredContent as unknown as QueryResult;
+  const results = queried.structuredContent as unknown as QueryResult;
+  expect(results.jobId).toBe(runId);
+  expect(results.source).toMatchObject({
+    revision: study.model.source.revision,
+    format: 'step',
+    units: study.model.source.units,
+  });
+  expect(results.preparedStudy).toEqual(completed.prepared);
+  return results;
 }
 
 const MESH = { minSize: 0.002, maxSize: 0.004 };

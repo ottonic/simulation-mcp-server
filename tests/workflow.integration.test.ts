@@ -13,7 +13,7 @@ import {
   temporary,
 } from './helpers.js';
 import { Simulation } from '../src/service.js';
-import { meshSchema, preparedStudySchema } from '../src/schemas.js';
+import { caseSchema, meshSchema, preparedStudySchema } from '../src/schemas.js';
 import { runProcess, type ProcessResult } from '../src/process.js';
 
 /** Element `index` or a clear failure — keeps assertions free of `!`. */
@@ -113,7 +113,10 @@ it('completes STEP → explicit groups → native mesh → SIF → Elmer → ana
               ? {
                   selection: groupName.get(boundary.group)!,
                   kind: boundary.kind,
-                  temperature: boundary.temperature,
+                  temperature: {
+                    value: boundary.temperature.value - 273.15,
+                    units: 'degC',
+                  },
                 }
               : {
                   selection: groupName.get(boundary.group)!,
@@ -127,7 +130,7 @@ it('completes STEP → explicit groups → native mesh → SIF → Elmer → ana
         {
           observationId: 'max_temperature',
           operator: '<',
-          threshold: { value: 401, units: 'K' },
+          threshold: { value: 127, units: 'degC' },
         },
       ],
       assumptions: [],
@@ -165,9 +168,13 @@ it('completes STEP → explicit groups → native mesh → SIF → Elmer → ana
             ),
           );
     expect(run.status, `${JSON.stringify(run)}\n${evidence.join('\n')}`).toBe('succeeded');
-    expect((await simulation.queryResults(run.runId)).acceptance).toMatchObject([
-      { observationId: 'max_temperature', status: 'pass', units: 'K' },
-    ]);
+    const acceptance = (await simulation.queryResults(run.runId)).acceptance[0]!;
+    expect(acceptance).toMatchObject({
+      observationId: 'max_temperature',
+      status: 'pass',
+      units: 'K',
+    });
+    expect(acceptance.threshold).toBeCloseTo(400.15, 8);
     expect((await simulation.listJobs()).jobs.map((job) => job.kind)).toContain('prepare');
     expect(run.solver.version).toMatch(/Elmer|version/i);
     const scalar = (name: string) => run.summaries.find((s) => s.name === name)!.value;
@@ -545,6 +552,15 @@ it('prepares, runs, and queries a time-indexed transient thermal study', async (
     const analyticTemperature = 300 + 100 * normalized;
     expect(Math.abs(temperatures[nearest]! - analyticTemperature)).toBeLessThan(2);
     const queried = await simulation.queryResults(run.runId);
+    expect(queried).toMatchObject({
+      jobId: run.runId,
+      source: {
+        revision: inspected.source.revision,
+        format: inspected.source.format,
+        units: inspected.source.units,
+      },
+      preparedStudy: run.prepared,
+    });
     expect(queried.observations).toMatchObject([
       {
         id: 'mean_at_50s',
@@ -597,6 +613,14 @@ it('prepares, runs, and queries static structural axial deformation', async () =
             selection: groupNames.get(1)!,
             youngsModulus: { value: 210e9, units: 'Pa' },
             poissonRatio: 0.3,
+            reference: {
+              designation: 'AISI 304',
+              source: {
+                name: 'test material reference',
+                revision: `sha256:${'a'.repeat(64)}`,
+              },
+              basis: 'typical',
+            },
           },
         ],
         boundaries: selected.config.boundaries.map((boundary) => {
@@ -642,8 +666,43 @@ it('prepares, runs, and queries static structural axial deformation', async () =
     expect(preparation.status).toBe('succeeded');
     if (!preparation.prepared)
       throw new Error('Structural preparation returned no prepared artifact.');
+    const preparedStudy = await simulation.artifacts.json(
+      preparation.prepared,
+      preparedStudySchema,
+    );
+    expect(preparedStudy.study.physics).toMatchObject({
+      kind: 'static-structural',
+      materials: [
+        {
+          reference: {
+            designation: 'AISI 304',
+            source: {
+              name: 'test material reference',
+              revision: `sha256:${'a'.repeat(64)}`,
+            },
+            basis: 'typical',
+          },
+        },
+      ],
+    });
     const started = await simulation.runStudy(preparation.prepared);
     const run = await waitForRun(simulation, started.runId);
+    const persistedCase = await simulation.artifacts.json(run.case, caseSchema);
+    expect(persistedCase.config).toMatchObject({
+      physics: 'static-structural',
+      materials: [
+        {
+          reference: {
+            designation: 'AISI 304',
+            source: {
+              name: 'test material reference',
+              revision: `sha256:${'a'.repeat(64)}`,
+            },
+            basis: 'typical',
+          },
+        },
+      ],
+    });
     const logs = await Promise.all(
       run.logs.map(async (ref) => (await simulation.artifacts.verify(ref)).toString()),
     );

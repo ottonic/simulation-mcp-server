@@ -520,6 +520,7 @@ const STUDY_SHAPE = {
     'selections use dimension-qualified entity IDs (3:tag, 2:tag) and must cover every inspected entity exactly once.',
     'mesh is { minSize, maxSize, units?, elementOrder: 1 }; units defaults to m and accepts mm, cm, in or ft.',
     'Quantities accept compatible engineering units such as mm, in, psi, ksi, lbf, degC and degF; the server converts them to SI.',
+    'Each physics material may include optional reference { designation, source: { name, revision }, basis }. This caller-supplied identity is stored with the study but not verified by Simulation.',
     'Each observation is { id, quantity, time?, mode? }; id must be unique, quantity comes from the physics entry.',
     'acceptanceCriteria compare an observation id against a threshold in a compatible unit; both are converted to SI.',
     'displayUnits optionally chooses result units, e.g. { length: "in", pressure: "ksi" }; observations are returned in those units.',

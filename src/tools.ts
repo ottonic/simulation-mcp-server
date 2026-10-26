@@ -138,6 +138,9 @@ const jobListOutputSchema = z.strictObject({
 });
 
 const queryResultsOutputSchema = z.strictObject({
+  jobId: jobSchema.shape.jobId,
+  source: artifactSchema,
+  preparedStudy: artifactSchema.optional(),
   status: jobSchema.shape.status,
   convergence: z.string(),
   summaries: jobSchema.shape.summaries,
@@ -331,7 +334,7 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     name: 'query_results',
     title: 'Query Results',
     description:
-      "Retrieve bounded evidence for a solver job: status, convergence, observations and acceptance, the summaries backing them, distinct output fields, and a paginated artifact page. Pass include:['summaries'] for the full history, observations to filter, time to select the frame for observations without an explicit time, and limit/cursor to page artifacts.",
+      "Retrieve bounded evidence for a solver job, including its job ID, source model and prepared-study reference, status, convergence, observations and acceptance, distinct output fields, and a paginated artifact page. Summaries are returned when explicitly requested with include:['summaries'], or as a fallback when no observations were declared. Pass observations to filter, time to select the frame for observations without an explicit time, and limit/cursor to page artifacts.",
     inputSchema: z.strictObject({
       jobId: id.describe('Solver job id returned by run_study.'),
       include: z

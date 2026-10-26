@@ -167,6 +167,12 @@ converted at the API boundary. Mesh sizes default to metres and accept `mm`,
 returns observations in the engineer's units. Linear tetrahedra are still the
 only supported element type.
 
+Material entries may carry an optional `reference` with the designation, source
+name/revision, and basis returned by a reference tool such as Standards. The
+study preserves this caller-supplied context alongside the explicit numeric
+properties; Simulation does not fetch or verify the source. A `typical` value
+remains distinct from a qualified design allowable.
+
 Example steady thermal study after inspecting the STEP file:
 
 ```json
@@ -235,10 +241,11 @@ confirm each selection against the actual part. `prepare_study` returns a
 to `run_study`, which returns another `jobId`. `query_results` reports solver
 evidence separately from observation
 values and criterion outcomes; a failed criterion is an engineering result, not
-a solver error. Its response is bounded by default — summaries backing the
-returned observations, de-duplicated field descriptors, and one page of artifact
-refs (`limit`/`cursor`, `artifactCount`). Pass `include:["summaries"]` for the
-full history, `time` to select one frame, or `observations` to filter. Scalar
+a solver error. Its response is bounded by default — observation values without
+duplicate backing summaries, de-duplicated field descriptors, and one page of
+artifact refs (`limit`/`cursor`, `artifactCount`). Summaries are returned when
+requested with `include:["summaries"]`, or as a fallback when no observations
+were declared. Pass `time` to select one frame or `observations` to filter. Scalar
 means are nodal, not volume averages or integrated heat
 rates. Arbitrary SIF, procedures, expressions, scripts and solver commands are
 never study inputs.

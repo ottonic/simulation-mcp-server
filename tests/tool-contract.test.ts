@@ -113,6 +113,9 @@ it('accepts the documented success shape for every tool', () => {
   accepts('inspect_job', solveJob);
   accepts('cancel_job', solveJob);
   accepts('query_results', {
+    jobId: randomUUID(),
+    source: artifact,
+    preparedStudy: artifact,
     status: 'succeeded',
     convergence: 'ok',
     summaries: [],
@@ -136,6 +139,8 @@ it('accepts the documented success shape for every tool', () => {
 
 it('rejects a success shape that omits required fields', () => {
   const { artifactCount: _omitted, ...withoutCount } = {
+    jobId: randomUUID(),
+    source: artifact,
     status: 'succeeded',
     convergence: 'ok',
     summaries: [],

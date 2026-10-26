@@ -169,10 +169,10 @@ it.each(['steady', 'transient'] as const)(
           }),
         ]);
       }
-      // Bounded default response: observation-backed summaries and an artifact page.
+      // Default response avoids duplicating summary values already in observations.
       expect(queried.artifactCount).toBe(completed.results.length);
       expect(queried.artifacts.length).toBeLessThanOrEqual(50);
-      expect(queried.summaries.length).toBeLessThanOrEqual(queried.observations.length);
+      expect(queried.summaries).toEqual([]);
       const page = await sim.queryResults(completed.runId, { limit: 5 });
       expect(page.artifacts).toHaveLength(Math.min(5, completed.results.length));
       if (completed.results.length > 5) expect(page.nextCursor).toBe('5');
@@ -197,7 +197,7 @@ it.each(['steady', 'transient'] as const)(
           value: 0.25,
           units: 's',
         });
-        expect(selected.summaries.length).toBeGreaterThan(0);
+        expect(selected.summaries).toEqual([]);
       }
     } finally {
       await sim.close();

@@ -89,12 +89,31 @@ export const quantity = <T extends string>(units: T, positive = false) =>
       }
       return { value: converted.value, units };
     });
+
+/** Optional, caller-supplied material identity; Simulation does not verify it. */
+const materialReference = z.strictObject({
+  designation: z.string().min(1),
+  source: z.strictObject({
+    name: z.string().min(1),
+    revision: z.string().min(1),
+  }),
+  basis: z.enum(['typical', 'qualified', 'computed', 'user-supplied', 'advisory']),
+});
+const absoluteTemperature = quantity('K').refine(({ value }) => value >= 0, {
+  message: 'Absolute temperature must not be below 0 K.',
+});
+const materialReferenceField = materialReference.optional().meta({
+  description:
+    'Optional caller-supplied material identity and basis. Copy from a reference lookup; Simulation stores it with the study but does not verify it against the cited source.',
+});
+
 const thermalFields = {
   materials: z
     .array(
       z.strictObject({
         group: z.number().int().positive(),
         conductivity: quantity('W/(m.K)', true),
+        reference: materialReferenceField,
       }),
     )
     .min(1),
@@ -144,6 +163,7 @@ const transientThermalSchema = z.strictObject({
         conductivity: quantity('W/(m.K)', true),
         density: quantity('kg/m3', true),
         heatCapacity: quantity('J/(kg.K)', true),
+        reference: materialReferenceField,
       }),
     )
     .min(1),
@@ -194,6 +214,7 @@ const structuralMaterialSchema = z.strictObject({
   group: z.number().int().positive(),
   youngsModulus: quantity('Pa', true),
   poissonRatio: z.number().gt(-1).lt(0.45),
+  reference: materialReferenceField,
 });
 const structuralBoundarySchema = z.discriminatedUnion('kind', [
   z.strictObject({
@@ -230,6 +251,7 @@ export const modalSchema = z.strictObject({
         youngsModulus: quantity('Pa', true),
         poissonRatio: z.number().gt(-1).lt(0.45),
         density: quantity('kg/m3', true),
+        reference: materialReferenceField,
       }),
     )
     .min(1),
@@ -268,6 +290,7 @@ export const dcConductionSchema = z.strictObject({
       z.strictObject({
         group: z.number().int().positive(),
         electricalConductivity: quantity('S/m', true),
+        reference: materialReferenceField,
       }),
     )
     .min(1),
@@ -278,6 +301,7 @@ const flowMaterial = z.strictObject({
   group: z.number().int().positive(),
   density: quantity('kg/m3', true),
   dynamicViscosity: quantity('Pa.s', true),
+  reference: materialReferenceField,
 });
 const flowBoundary = z.discriminatedUnion('kind', [
   z.strictObject({
@@ -459,6 +483,7 @@ export const studySchema = z.strictObject({
           z.strictObject({
             selection: selectionName,
             conductivity: quantity('W/(m.K)', true),
+            reference: materialReferenceField,
           }),
         )
         .min(1),
@@ -475,10 +500,7 @@ export const studySchema = z.strictObject({
           z.strictObject({
             selection: selectionName,
             kind: z.literal('temperature'),
-            temperature: z.strictObject({
-              value: z.number().nonnegative(),
-              units: z.literal('K'),
-            }),
+            temperature: absoluteTemperature,
           }),
           z.strictObject({
             selection: selectionName,
@@ -502,6 +524,7 @@ export const studySchema = z.strictObject({
             conductivity: quantity('W/(m.K)', true),
             density: quantity('kg/m3', true),
             heatCapacity: quantity('J/(kg.K)', true),
+            reference: materialReferenceField,
           }),
         )
         .min(1),
@@ -518,10 +541,7 @@ export const studySchema = z.strictObject({
           z.strictObject({
             selection: selectionName,
             kind: z.literal('temperature'),
-            temperature: z.strictObject({
-              value: z.number().nonnegative(),
-              units: z.literal('K'),
-            }),
+            temperature: absoluteTemperature,
           }),
           z.strictObject({
             selection: selectionName,
@@ -534,10 +554,7 @@ export const studySchema = z.strictObject({
           }),
         ]),
       ),
-      initialTemperature: z.strictObject({
-        value: z.number().nonnegative(),
-        units: z.literal('K'),
-      }),
+      initialTemperature: absoluteTemperature,
       time: z.strictObject({
         timestep: quantity('s', true),
         steps: z.number().int().positive().max(10000),
@@ -551,6 +568,7 @@ export const studySchema = z.strictObject({
             selection: selectionName,
             youngsModulus: quantity('Pa', true),
             poissonRatio: z.number().gt(-1).lt(0.45),
+            reference: materialReferenceField,
           }),
         )
         .min(1),
@@ -588,6 +606,7 @@ export const studySchema = z.strictObject({
             youngsModulus: quantity('Pa', true),
             poissonRatio: z.number().gt(-1).lt(0.45),
             density: quantity('kg/m3', true),
+            reference: materialReferenceField,
           }),
         )
         .min(1),
@@ -614,6 +633,7 @@ export const studySchema = z.strictObject({
           z.strictObject({
             selection: selectionName,
             electricalConductivity: quantity('S/m', true),
+            reference: materialReferenceField,
           }),
         )
         .min(1),
@@ -641,6 +661,7 @@ export const studySchema = z.strictObject({
             selection: selectionName,
             density: quantity('kg/m3', true),
             dynamicViscosity: quantity('Pa.s', true),
+            reference: materialReferenceField,
           }),
         )
         .min(1),
