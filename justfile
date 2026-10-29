@@ -17,8 +17,9 @@ build:
 test:
 	npm test
 
-# Native solver integration and qualification (requires Gmsh + Elmer).
-test-integration:
+# Native solver integration and qualification (requires Gmsh + Elmer). The fixtures are
+# regenerated first: they are build products, not sources.
+test-integration: fixture
 	npm run test:integration
 
 typecheck:

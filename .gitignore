@@ -19,3 +19,9 @@ coverage/
 # Native runtime build caches and generated toolchains
 .runtime-cache/
 native/
+
+# Generated fixtures: 'just fixture' writes these from tests/fixtures/generate_bar.py. A STEP
+# file in this repository is a mistake: it cannot be reviewed in a diff, and nothing would
+# regenerate it.
+tests/fixtures/*.step
+tests/fixtures/*.stp
