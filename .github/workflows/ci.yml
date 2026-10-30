@@ -65,7 +65,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: astral-sh/setup-uv@v10
       - run: npm ci --ignore-scripts
       - run: npm run build
       - run: uvx ruff check worker
@@ -172,7 +172,7 @@ jobs:
           path: .runtime-cache/elmer
           key: simulation-elmer-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'scripts/build-elmer.sh') }}-${{ steps.runtime-toolchain.outputs.fingerprint || steps.runtime-toolchain-windows.outputs.fingerprint }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
           cache: pip
