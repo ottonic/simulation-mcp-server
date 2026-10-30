@@ -48,10 +48,12 @@ commits on `main`: it opens a release PR that bumps `package.json` and
 `server.json`; merging it tags the release and publishes to npm and the MCP
 registry.
 
-Two one-time maintainer steps:
+release-please authenticates as a **GitHub App**, not `GITHUB_TOKEN` — PRs created
+with `GITHUB_TOKEN` do not trigger CI, so a release PR could never pass the
+required `check`. The App needs **Contents: Read and write** and **Pull requests:
+Read and write**, installed on the `ottonic` organization; its credentials are the
+organization secrets `RELEASE_APP_ID` and `RELEASE_APP_PRIVATE_KEY`.
 
-1. Add a `RELEASE_PLEASE_TOKEN` repository secret — a classic PAT with
-   `contents:write` and `pull_requests:write`, so release-please PRs trigger CI.
-2. Publish the package to npm once by hand (`npm publish --access public`), then
-   configure a **trusted publisher** for this repository on npmjs.com so later
-   releases publish without a token.
+Per package, once: publish it to npm by hand (`npm publish --access public`,
+approving the staged release), then configure a **trusted publisher** for this
+repository on npmjs.com so later releases publish without a token.
