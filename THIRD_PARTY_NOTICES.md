@@ -1,6 +1,9 @@
-# External toolchain notices
+# Third-Party Notices
 
-The MCP does not embed or download Gmsh/Elmer at runtime and does not use PyElmer.
+Simulation MCP Server is MIT licensed; see [LICENSE](LICENSE).
+
+The server does not embed or download Gmsh/Elmer at runtime and does not use
+PyElmer.
 The Nix environment provisions these independently licensed tools:
 
 - Gmsh: https://gmsh.info/ — GPL-2.0-or-later with upstream exceptions/options;

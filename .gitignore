@@ -25,3 +25,10 @@ native/
 # regenerate it.
 tests/fixtures/*.step
 tests/fixtures/*.stp
+
+# Internal planning and records (not for the public repo)
+.planning/
+TODO.md
+test_prompts.md
+docs/records/
+*-ledger.md

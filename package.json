@@ -30,6 +30,7 @@
     "url": "https://github.com/mattmohandiss/simcp/issues"
   },
   "author": "Matt Mohandiss <mattmohandiss@gmail.com>",
+  "license": "MIT",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org"
