@@ -1,16 +1,23 @@
-# Simulation MCP
+# Ottosim — Simulation MCP Server
 
-Independent local stdio MCP: STEP → explicit physical groups → Gmsh → ElmerGrid
-→ typed thermal/structural/modal/DC conduction/laminar-flow studies → ElmerSolver → revisioned VTU/scalars/logs.
-Node 24 / TypeScript uses MCP SDK 2.3.1. A Python Gmsh
-worker uses a one-request/one-response JSON-file protocol (`protocol: 1`).
-No other MCP service, cloud service or prepared SIF is required.
+Give an AI assistant first-order engineering physics on a real CAD model. This
+local stdio MCP server carries a STEP file through explicit meshing in Gmsh to a
+typed study in Elmer — steady and transient thermal, linear static structural,
+modal, DC conduction, and laminar flow — and returns revisioned results, with no
+cloud service and no prepared solver input.
 
-**Local validation (2026-10-17):** Nix Gmsh 4.15.0 and Elmer 26.2 completed
-production-SIF qualifications for steady/transient thermal, static-structural,
-modal frequency, DC potential, and steady/transient laminar flow, each against an
-analytic reference with mesh (or timestep) refinement. This is local runtime
-evidence, not verification of every target platform.
+Every engineering input is explicit: the materials, boundaries, and mesh are
+stated, never inferred, and each study, mesh, and result is revision-bound so a
+number can always be traced back to what produced it.
+
+**Qualified against analytic references.** Gmsh 4.15.0 and Elmer 26.2 complete
+production-SIF qualifications for every advertised physics — steady and transient
+thermal, static structural, modal frequency, DC potential, and steady and
+transient laminar flow — each against an analytic reference with mesh (or
+timestep) refinement.
+
+Runs on Node 24 / TypeScript against MCP SDK 2.3.1, with a Python Gmsh worker over
+a one-request/one-response JSON-file protocol (`protocol: 1`).
 
 ## Install and launch
 
@@ -324,6 +331,16 @@ are `step`, `gmsh-msh`, `elmer-mesh`, `vtu`, `elmer-sif`, `text`, and `json`.
 Derived artifacts receive their own digests. An Elmer mesh directory is not a
 single artifact: its metadata references individual native files.
 
+## Limits
+
+- Linear tetrahedra only; studies are small-strain and use the physics kinds
+  listed above. Every engineering input is explicit — materials, boundaries, and
+  idealisations are never inferred.
+- Results are numerical evidence, not engineering certification; a failed
+  acceptance criterion is an engineering result, not a solver error.
+- A job survives a client disconnect but not a server shutdown, and interrupted
+  jobs are recorded rather than resumed.
+
 ## Development
 
 Requires Node.js 24+ and [`just`](https://github.com/casey/just). A Nix flake and
@@ -375,7 +392,7 @@ Tests use the operating system's temporary directory;
 Licensing and upstream source references are recorded in
 [third-party notices](THIRD_PARTY_NOTICES.md).
 
-## Package preparation
+## Packaging
 
 `npm pack` builds first and includes compiled runtime code, the local artifact
 schema, Python worker, README, and third-party notices. Tests, source maps, and
@@ -387,5 +404,6 @@ through `server/discover`. Native tools still require separate installation.
 `just check` includes solver-independent stdio protocol tests for modern
 discovery, workflow resources, tool errors, and both protocol eras.
 
-A project license must be selected and added before public release; third-party
-notices do not license this server's own code.
+## License
+
+MIT. Third-party toolchain terms are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -1,28 +1,23 @@
-# Simulation MCP Contributor Instructions
+# Simulation MCP Server — contributor instructions
 
-- Keep engineering choices explicit: never infer materials, boundary conditions,
-  or substitute stale entity selections.
-- Preserve exact-byte artifact revisions, configured-root checks for local
-  path mistakes, bounded child processes, and failure/result verification.
+- Keep engineering choices explicit: never infer materials or boundary conditions,
+  and never substitute a stale entity selection.
+- Preserve exact-byte artifact revisions, configured-root checks for local path
+  mistakes, bounded child processes, and failure/result verification.
 - Solver processes inherit the trusted local environment; override only
-  deterministic numerical/runtime settings unless a specific solver requires otherwise.
+  deterministic numerical/runtime settings unless a specific solver requires more.
 - Treat the service as trusted-local, not a filesystem sandbox. Hosted deployment
-  requires an external isolation boundary.
-- Keep dependencies and test inputs server-local. Do not invoke other MCP servers
-  from the implementation or rely on another repository's tests.
-- Never advertise the workspace [`contracts/`](../../contracts/) schemas as a tool
-  `outputSchema`: they use cross-file `$ref`, which MCP clients must not
-  dereference. Advertised schemas must be self-contained. See
-  [ENGINEERING-ARTIFACT-CONTRACT.md](../../ENGINEERING-ARTIFACT-CONTRACT.md)
-  §Relationship to MCP.
-- Use strict TypeScript, ESM imports with `.js` extensions, single quotes, and
+  needs an external isolation boundary.
+- Keep dependencies and test inputs in this repository; do not invoke other MCP
+  servers from the implementation.
+- Advertised tool schemas must be self-contained: inline `$defs`, no external
+  `$ref` that a client would have to dereference.
+- Use strict TypeScript, ESM imports with `.js` extensions, single quotes, and the
   existing Prettier/oxlint conventions.
-- Prefer `just` recipes. Run `just check` in the `checks` Nix shell for fast
-  validation; use `just test-integration` in the full shell for native solver changes.
-- `.envrc` activates the flake; require `direnv allow` after changes. Server logs
-  go to stderr as pino JSON; `MCP_LOG_LEVEL` and `MCP_LOG_FORMAT` tune them. Keep
-  credentials out of the repository and document placeholders only.
-- Keep language tooling and additive editor/agent configuration project-local.
+- Prefer the `just` recipes. Run `just check` in the `checks` Nix shell for fast
+  validation; use `just test-integration` in the full shell for native solver
+  changes.
+- Keep credentials out of the repository and document placeholders only.
 - Report which native checks ran; do not treat skipped tests as solver evidence.
 
-See [README](README.md) for commands, supported physics, and current build limitations.
+See the [README](README.md) for commands, supported physics, and build limits.
