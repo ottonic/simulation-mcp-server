@@ -3,6 +3,15 @@ name: release-please
 on:
   push:
     branches: [main]
+  # Retry path for a failure after the release already exists — for example the
+  # MCP registry validating the npm version before it has propagated. Runs only
+  # the publish job.
+  workflow_dispatch:
+    inputs:
+      publish_only:
+        description: Re-run the publish job without creating a release
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -14,6 +23,7 @@ concurrency:
 
 jobs:
   release-please:
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -42,7 +52,9 @@ jobs:
 
   publish:
     needs: [release-please]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    # `always()` so a skipped release-please (a publish_only dispatch) still lets
+    # this job run.
+    if: ${{ always() && (needs.release-please.outputs.release_created == 'true' || inputs.publish_only) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -68,11 +80,17 @@ jobs:
           path: .
           fail-on: error
 
-      # Trusted publishing: the package must already exist on npm with a trusted
-      # publisher configured for this repository. The very first publish is done
-      # manually; see CONTRIBUTING.md.
+      # Idempotent: a retry after a partial failure must not fail because the
+      # version is already published; it should fall through to the registry step.
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is already published; skipping"
+          else
+            npm publish --provenance --access public
+          fi
 
       - name: Install MCP Registry publisher
         run: |
@@ -81,12 +99,14 @@ jobs:
           echo 'a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  '"$archive" | sha256sum --check
           tar xzf "$archive" mcp-publisher
 
+      # The registry validates that the npm version exists, and npm's CDN can lag
+      # the publish by minutes, so the budget is generous.
       - name: Publish to MCP Registry
         run: |
-          max=5
+          max=10
           for n in $(seq 0 $((max - 1))); do
             if [ "$n" -gt 0 ]; then
-              wait=$((2 ** (n - 1) * 15))
+              wait=$((n <= 5 ? n * 30 : 300))
               echo "Retry $n/$((max - 1)) in ${wait}s..."
               sleep "$wait"
             fi
