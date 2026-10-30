@@ -39,3 +39,19 @@ and grant Matt Mohandiss a perpetual, worldwide, non-exclusive, royalty-free,
 irrevocable, sublicensable license to use, reproduce, modify, distribute, and
 relicense your contribution, including under different terms. You retain
 copyright to your contribution.
+
+## Releasing
+
+Releases are automated with
+[release-please](https://github.com/googleapis/release-please) from conventional
+commits on `main`: it opens a release PR that bumps `package.json` and
+`server.json`; merging it tags the release and publishes to npm and the MCP
+registry.
+
+Two one-time maintainer steps:
+
+1. Add a `RELEASE_PLEASE_TOKEN` repository secret — a classic PAT with
+   `contents:write` and `pull_requests:write`, so release-please PRs trigger CI.
+2. Publish the package to npm once by hand (`npm publish --access public`), then
+   configure a **trusted publisher** for this repository on npmjs.com so later
+   releases publish without a token.
