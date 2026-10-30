@@ -1,13 +1,13 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.mattmohandiss/simcp",
-  "title": "Simulation MCP Server",
+  "name": "io.github.ottonic/simulation-mcp-server",
+  "title": "Ottosim — Simulation MCP Server",
   "description": "STEP meshing and explicitly configured thermal, structural, modal, DC, and laminar-flow analysis with Gmsh and Elmer. Returns computed facts, not conclusions.",
   "repository": {
-    "url": "https://github.com/mattmohandiss/simcp",
+    "url": "https://github.com/ottonic/simulation-mcp-server",
     "source": "github"
   },
-  "websiteUrl": "https://github.com/mattmohandiss/simcp#readme",
+  "websiteUrl": "https://github.com/ottonic/simulation-mcp-server#readme",
   "version": "0.1.0",
   "packages": [
     {

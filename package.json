@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Local MCP server for STEP meshing and explicitly configured thermal, structural, modal, DC, and laminar-flow analysis with Gmsh and Elmer.",
   "type": "module",
-  "mcpName": "io.github.mattmohandiss/simcp",
+  "mcpName": "io.github.ottonic/simulation-mcp-server",
   "main": "dist/src/index.js",
   "engines": {
     "node": ">=24"
@@ -23,11 +23,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mattmohandiss/simcp.git"
+    "url": "git+https://github.com/ottonic/simulation-mcp-server.git"
   },
-  "homepage": "https://github.com/mattmohandiss/simcp#readme",
+  "homepage": "https://github.com/ottonic/simulation-mcp-server#readme",
   "bugs": {
-    "url": "https://github.com/mattmohandiss/simcp/issues"
+    "url": "https://github.com/ottonic/simulation-mcp-server/issues"
   },
   "author": "Matt Mohandiss <mattmohandiss@gmail.com>",
   "license": "MIT",
