@@ -65,6 +65,8 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      # setup-uv publishes no floating major tag that resolves, so the exact
+      # version is required here.
       - uses: astral-sh/setup-uv@v10.3.3
       - run: npm ci --ignore-scripts
       - run: npm run build
