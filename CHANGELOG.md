@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/ottonic/simulation-mcp-server/compare/simulation-mcp-server-v0.2.0...simulation-mcp-server-v0.2.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **ci:** make the release publish step idempotent and retryable ([#9](https://github.com/ottonic/simulation-mcp-server/issues/9)) ([f88070e](https://github.com/ottonic/simulation-mcp-server/commit/f88070e25ff7a85093217cc6445335bb072c29a6))
+* ship dist/package.json so the published server can start ([#13](https://github.com/ottonic/simulation-mcp-server/issues/13)) ([6dc1905](https://github.com/ottonic/simulation-mcp-server/commit/6dc1905316c59e3945f993030d55d992ba78d602))
+
 ## [0.2.0](https://github.com/ottonic/simulation-mcp-server/compare/simulation-mcp-server-v0.1.0...simulation-mcp-server-v0.2.0) (2026-10-30)
 
 
