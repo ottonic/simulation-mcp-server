@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/ottonic/simulation-mcp-server/compare/simulation-mcp-server-v0.2.1...simulation-mcp-server-v0.3.0) (2026-10-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* require Node 26 and move to MCP SDK 2.4.0 ([#15](https://github.com/ottonic/simulation-mcp-server/issues/15))
+
+### Features
+
+* require Node 26 and move to MCP SDK 2.4.0 ([#15](https://github.com/ottonic/simulation-mcp-server/issues/15)) ([52ca895](https://github.com/ottonic/simulation-mcp-server/commit/52ca895fd4905194f3b07ae5adf8c75eaa915388))
+
 ## [0.2.1](https://github.com/ottonic/simulation-mcp-server/compare/simulation-mcp-server-v0.2.0...simulation-mcp-server-v0.2.1) (2026-10-31)
 
 
