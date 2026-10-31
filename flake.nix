@@ -2,7 +2,7 @@
   description = "Independent Node 26 / Gmsh / Elmer thermal simulation MCP";
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    elmer.url = "github:ElmerCSC/elmerfem/release-26.2.1";
+    elmer.url = "github:ElmerCSC/elmerfem/devel";
   };
   outputs = { nixpkgs, elmer, ... }:
     let

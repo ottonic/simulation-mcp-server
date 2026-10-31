@@ -8,16 +8,16 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1777467897,
-        "narHash": "sha256-C8/0YdxAUNFQLi6IjECboxiHD4w4KVzU6E4/9SfWqUE=",
+        "lastModified": 1793263176,
+        "narHash": "sha256-ps3b+fYxUNjkxmvVYRY6Vp9vmgbaj/xOby9CwaO/yJM=",
         "owner": "ElmerCSC",
         "repo": "elmerfem",
-        "rev": "a19504ac53ec222e3355e182b08f2ff280c2203a",
+        "rev": "31f541c747376c2eebbac5ce171f77b4b3883683",
         "type": "github"
       },
       "original": {
         "owner": "ElmerCSC",
-        "ref": "release-26.2.1",
+        "ref": "devel",
         "repo": "elmerfem",
         "type": "github"
       }
