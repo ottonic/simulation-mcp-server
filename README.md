@@ -10,11 +10,11 @@ Every engineering input is explicit: the materials, boundaries, and mesh are
 stated, never inferred, and each study, mesh, and result is revision-bound so a
 number can always be traced back to what produced it.
 
-**Qualified against analytic references.** Gmsh 4.15.2 and Elmer 26.2.1 complete
-production-SIF qualifications for every advertised physics — steady and transient
-thermal, static structural, modal frequency, DC potential, and steady and
-transient laminar flow — each against an analytic reference with mesh (or
-timestep) refinement.
+**Qualified against analytic references.** Gmsh 4.15.2 and Elmer (`devel`, most
+recently released as 26.2.1) complete production-SIF qualifications for every
+advertised physics — steady and transient thermal, static structural, modal
+frequency, DC potential, and steady and transient laminar flow — each against an
+analytic reference with mesh (or timestep) refinement.
 
 Runs on Node 26 / TypeScript 7 against MCP SDK 2.4.0, with a Python Gmsh worker over
 a one-request/one-response JSON-file protocol (`protocol: 1`).
