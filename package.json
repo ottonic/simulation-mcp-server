@@ -6,7 +6,7 @@
   "mcpName": "io.github.ottonic/simulation-mcp-server",
   "main": "dist/src/index.js",
   "engines": {
-    "node": ">=24"
+    "node": ">=26"
   },
   "bin": {
     "simulation-mcp-server": "dist/src/index.js"
@@ -68,19 +68,19 @@
     "fmt:check": "prettier --check src tests scripts package.json tsconfig.json tsconfig.build.json vitest.config.ts vitest.integration.config.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "2.3.1",
+    "@modelcontextprotocol/server": "^2.4.0",
     "pino": "^10.4.0",
-    "unitsnet-js": "^4.0.10",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "2.3.1",
-    "@types/node": "^24.0.0",
-    "oxlint": "^1.88.0",
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@types/node": "^26.6.6",
+    "oxlint": "^1.90.0",
     "prettier": "^3.9.10",
-    "tsx": "4.23.15",
-    "typescript": "7.0.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
     "typescript-language-server": "^6.0.2",
+    "unitsnet-js": "^4.0.10",
     "vitest": "^5.0.5"
   }
 }
