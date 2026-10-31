@@ -1,15 +1,34 @@
 version: 2
 updates:
-  - package-ecosystem: npm
-    directory: /
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 10
-  - package-ecosystem: github-actions
-    directory: /
+      interval: 'weekly'
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+    labels:
+      - 'dependencies'
+      - 'ci'
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: weekly
-  - package-ecosystem: pip
-    directory: /scripts
+      interval: 'weekly'
+    groups:
+      npm-production:
+        dependency-type: 'production'
+      npm-development:
+        dependency-type: 'development'
+        update-types:
+          - 'minor'
+          - 'patch'
+    labels:
+      - 'dependencies'
+  # The Gmsh runtime pin lives outside the npm tree.
+  - package-ecosystem: 'pip'
+    directory: '/scripts'
     schedule:
-      interval: weekly
+      interval: 'weekly'
+    labels:
+      - 'dependencies'
