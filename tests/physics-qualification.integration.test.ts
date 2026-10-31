@@ -294,7 +294,14 @@ it('qualifies DC conduction against the bar solution with mesh refinement', asyn
       expect(Math.abs(Math.abs(result.slope) - VOLTAGE / L)).toBeLessThan((VOLTAGE / L) * 0.01);
       expect(result.residual).toBeLessThan(0.02);
     }
-    expect(results[1]!.residual).toBeLessThanOrEqual(results[0]!.residual + 1e-9);
+    // Refinement must leave the linear fit at solver round-off. A strict
+    // `fine <= coarse` comparison cannot express that here: the residual is ~1e-7 V
+    // against a 10 V drop, so which mesh looks more linear is decided by
+    // platform-specific round-off rather than by the discretization — one runner
+    // resolves the coarse mesh exactly (~1e-18) while another leaves it at ~1e-7,
+    // and an absolute epsilon of 1e-9 separates neither case from noise. Assert the
+    // scale that is physically meaningful instead of the ordering.
+    expect(results[1]!.residual).toBeLessThan(1e-6);
   } finally {
     await sim.close();
   }
