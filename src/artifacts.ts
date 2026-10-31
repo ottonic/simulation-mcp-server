@@ -61,25 +61,15 @@ export class Artifacts {
       'path_policy',
       'Only local file URIs without query or fragment are supported.',
     );
-    // `resolve` matters on Windows: a `file:` URI with no drive letter yields a
-    // drive-relative path, which `realpath` reports with a code other than ENOENT.
-    const path = resolve(fileURLToPath(url));
-    const canonical = await realpath(path).catch(async (error: unknown) => {
-      // For a caller-supplied locator, "cannot be resolved" means "does not
-      // exist" — and that must be `file_not_found` on every platform, not an
-      // internal error. Ask the filesystem directly rather than trusting the
-      // native code, and let genuine access failures keep their own mapping.
-      try {
-        await stat(path);
-      } catch (statError) {
-        if ((statError as NodeJS.ErrnoException).code === 'ENOENT')
-          throw new SimulationError(
-            'file_not_found',
-            'A required local artifact or run record does not exist.',
-          );
-      }
-      throw error;
-    });
+    // Node rejects an encoded separator in a `file:` URL on every platform; that
+    // is a malformed locator, not a missing artifact.
+    requireThat(
+      !/%(2f|5c)/i.test(url.pathname),
+      'path_policy',
+      'Only local file URIs without query or fragment are supported.',
+    );
+    const path = fileURLToPath(url);
+    const canonical = await realpath(path);
     requireThat(
       this.roots.some((root) => inside(root, canonical)),
       'path_policy',
