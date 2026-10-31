@@ -63,6 +63,15 @@ export function errorData(error: unknown) {
         code: 'file_not_found' as const,
         message: 'A required local artifact or run record does not exist.',
       };
+    // Windows refuses a `file:` URL whose path has no drive letter, so a
+    // POSIX-absolute locator such as `file:///missing.step` cannot be converted
+    // to a local path there. It names no artifact on this platform, so it is a
+    // miss rather than an internal failure.
+    if (error.code === 'ERR_INVALID_FILE_URL_PATH')
+      return {
+        code: 'file_not_found' as const,
+        message: 'A required local artifact or run record does not exist.',
+      };
     if (['EACCES', 'EPERM', 'ELOOP', 'EISDIR'].includes(String(error.code)))
       return {
         code: 'path_policy' as const,
