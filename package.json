@@ -1,6 +1,6 @@
 {
   "name": "simulation-mcp-server",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Local MCP server for STEP meshing and explicitly configured thermal, structural, modal, DC, and laminar-flow analysis with Gmsh and Elmer.",
   "type": "module",
   "mcpName": "io.github.ottonic/simulation-mcp-server",

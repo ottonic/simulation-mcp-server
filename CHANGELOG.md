@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.1](https://github.com/ottonic/simulation-mcp-server/compare/simulation-mcp-server-v0.3.0...simulation-mcp-server-v0.3.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **flake:** track Elmer's devel branch; release-26.2.1 does not build on Windows ([#18](https://github.com/ottonic/simulation-mcp-server/issues/18)) ([039861c](https://github.com/ottonic/simulation-mcp-server/commit/039861cf9e0c1bf4086e6c342ba75654b2305c22))
+* report a locator Windows cannot convert as a miss, not an internal error ([#21](https://github.com/ottonic/simulation-mcp-server/issues/21)) ([1e4c2a6](https://github.com/ottonic/simulation-mcp-server/commit/1e4c2a618f55207fa111467759c3776b39afde2a))
+* **test:** make the cross-platform matrix pass on macOS and Windows ([#20](https://github.com/ottonic/simulation-mcp-server/issues/20)) ([7dc2d93](https://github.com/ottonic/simulation-mcp-server/commit/7dc2d933d9a1ee9757d3a3e10dd3ae3d02bd1c28))
+
 ## [0.3.0](https://github.com/ottonic/simulation-mcp-server/compare/simulation-mcp-server-v0.2.1...simulation-mcp-server-v0.3.0) (2026-10-31)
 
 
